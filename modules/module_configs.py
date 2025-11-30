@@ -16,7 +16,7 @@ class ModuleConfigs:
     USE_LOCAL_MODEL: bool = True  # Load from local path if available
     
     # Preprocessing configuration
-    MAX_TEXT_LENGTH: int = 1024
+    MAX_TEXT_LENGTH: int = 16384
     MIN_TEXT_LENGTH: int = 30
     
     # Tokenizer configuration
