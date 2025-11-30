@@ -1,0 +1,36 @@
+# ===== Python =====
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv/
+venv/
+ENV/
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+
+# ===== Dataset / Export =====
+_crawler/*.csv
+_crawler/*.jsonl
+_crawler/*.json
+exports/
+
+# ===== Database =====
+data/*.db
+
+# ===== Models (GIỮ FOLDER, KHÔNG GIỮ FILE) =====
+models/**/*
+!models/**/.gitkeep
+
+# ===== Checkpoints =====
+**/checkpoint-*/
+**/optimizer.pt
+**/scheduler.pt
+**/rng_state.pth
+
+# ===== Logs =====
+*.log
+logs/
