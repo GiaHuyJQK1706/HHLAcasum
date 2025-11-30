@@ -24,9 +24,9 @@ class ModuleConfigs:
     
     # Summarization configuration - FIXED: Different lengths for short vs long
     SUMMARY_MIN_LENGTH_SHORT: int = 30
-    SUMMARY_MAX_LENGTH_SHORT: int = 80
-    SUMMARY_MIN_LENGTH_LONG: int = 100
-    SUMMARY_MAX_LENGTH_LONG: int = 255
+    SUMMARY_MAX_LENGTH_SHORT: int = 100
+    SUMMARY_MIN_LENGTH_LONG: int = 120
+    SUMMARY_MAX_LENGTH_LONG: int = 300
     
     # Generation parameters
     NUM_BEAMS: int = 4
