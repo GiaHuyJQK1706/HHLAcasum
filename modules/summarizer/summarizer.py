@@ -72,9 +72,12 @@ class Summarizer:
         try:
             if self.model is not None:
                 del self.model
+                self.model = None
             if self.tokenizer is not None:
                 del self.tokenizer
-            torch.cuda.empty_cache()
+                self.tokenizer = None
+            if self.device == "cuda":
+                torch.cuda.empty_cache()
         except Exception as e:
             print(f"Warning: Failed to unload model: {str(e)}")
     
