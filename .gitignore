@@ -34,3 +34,9 @@ models/**/*
 # ===== Logs =====
 *.log
 logs/
+
+# ===== file .py not related to code =====
+download_models.py
+fine_tune.py
+test_model.py
+
