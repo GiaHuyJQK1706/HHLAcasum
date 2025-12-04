@@ -2,14 +2,14 @@
 Data Controller - Manages data persistence with SQLite
 """
 from typing import List, Dict, Any
-from data.database import Database
+from data.data_access import DataAccess
 
 
 class DataController:
     """Manages all data persistence operations using SQLite"""
     
     def __init__(self):
-        self.db = Database()
+        self.db = DataAccess()
         self.current_user_id = None
     
     def initialize_user(self, user_id: str = None) -> str:
@@ -31,7 +31,7 @@ class DataController:
     def add_summary_record(self, original_text: str, summary: str, 
                           summary_length: str) -> Dict[str, Any]:
         """
-        Add a new summary record to database (UC02, UC05)
+        Add a new summary record to DataAccess (UC02, UC05)
         
         Args:
             original_text: Original input text
@@ -65,7 +65,7 @@ class DataController:
     
     def get_summary_history(self) -> List[Dict[str, Any]]:
         """
-        Get summary history from database (UC05)
+        Get summary history from DataAccess (UC05)
         
         Returns:
             List of summary records

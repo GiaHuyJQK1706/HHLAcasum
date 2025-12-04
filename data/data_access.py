@@ -1,126 +1,408 @@
 """
-Data Access Layer for storing and retrieving summarization history
+Database Layer - SQLite for managing summaries and texts
 """
+import sqlite3
 import json
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 import threading
+import uuid
 
 
 class DataAccess:
-    """Manages data persistence for summarization history"""
+    """SQLite database management for summaries"""
     
-    def __init__(self, storage_dir: str = "./data/storage"):
-        self.storage_dir = Path(storage_dir)
-        self.history_file = self.storage_dir / "history.json"
-        self.max_history = 10
+    def __init__(self, db_path: str = "./data/summarizer.db"):
+        self.db_path = Path(db_path)
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
-        self._ensure_storage_exists()
+        self._init_db()
     
-    def _ensure_storage_exists(self) -> None:
-        """Ensure storage directory and files exist"""
+    def _get_connection(self):
+        """Get database connection"""
+        conn = sqlite3.connect(str(self.db_path))
+        conn.row_factory = sqlite3.Row
+        return conn
+    
+    def _init_db(self):
+        """Initialize database tables"""
         try:
-            self.storage_dir.mkdir(parents=True, exist_ok=True)
-            if not self.history_file.exists():
-                self._save_history([])
+            with self._lock:
+                conn = self._get_connection()
+                cursor = conn.cursor()
+                
+                # Create users table
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS users (
+                        user_id TEXT PRIMARY KEY,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                
+                # Create texts table
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS texts (
+                        text_id TEXT PRIMARY KEY,
+                        user_id TEXT NOT NULL,
+                        content TEXT NOT NULL,
+                        length INTEGER NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES users(user_id)
+                    )
+                """)
+                
+                # Create summaries table
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS summaries (
+                        summary_id TEXT PRIMARY KEY,
+                        user_id TEXT NOT NULL,
+                        text_id TEXT NOT NULL,
+                        original_content TEXT NOT NULL,
+                        summary_content TEXT NOT NULL,
+                        summary_length TEXT NOT NULL,
+                        original_length INTEGER NOT NULL,
+                        summary_text_length INTEGER NOT NULL,
+                        compression_ratio REAL NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES users(user_id),
+                        FOREIGN KEY (text_id) REFERENCES texts(text_id)
+                    )
+                """)
+                
+                conn.commit()
+                conn.close()
+                
+                print("✅ Database initialized")
         except Exception as e:
-            raise Exception(f"Failed to initialize storage: {str(e)}")
+            raise Exception(f"Failed to initialize database: {str(e)}")
     
-    def save_text_to_storage(self, filepath: str) -> str:
+    def get_or_create_user(self, user_id: Optional[str] = None) -> str:
         """
-        Save extracted text to storage
+        Get or create a user
         
         Args:
-            filepath: Path to text file
+            user_id: User ID (if None, generate new)
             
         Returns:
-            Saved file path
+            User ID
         """
         try:
             with self._lock:
-                text_storage = self.storage_dir / "texts"
-                text_storage.mkdir(parents=True, exist_ok=True)
+                if user_id is None:
+                    user_id = str(uuid.uuid4())
                 
-                filename = f"text_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
-                save_path = text_storage / filename
+                conn = self._get_connection()
+                cursor = conn.cursor()
                 
-                with open(filepath, 'r', encoding='utf-8') as src:
-                    content = src.read()
+                # Check if user exists
+                cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (user_id,))
+                if cursor.fetchone():
+                    conn.close()
+                    return user_id
                 
-                with open(save_path, 'w', encoding='utf-8') as dst:
-                    dst.write(content)
+                # Create new user
+                cursor.execute("INSERT INTO users (user_id) VALUES (?)", (user_id,))
+                conn.commit()
+                conn.close()
                 
-                return str(save_path)
+                return user_id
         except Exception as e:
-            raise Exception(f"Failed to save text to storage: {str(e)}")
+            raise Exception(f"Failed to get or create user: {str(e)}")
     
-    def add_summary_record(self, original_text: str, summary: str, 
-                          summary_length: str) -> None:
+    def save_summary(self, user_id: str, original_text: str, summary_text: str, 
+                    summary_length: str) -> str:
         """
-        Add a new summary record to history
+        Save summary to database
         
         Args:
-            original_text: Original input text
-            summary: Generated summary text
-            summary_length: Length type (short/long)
+            user_id: User ID
+            original_text: Original text
+            summary_text: Generated summary
+            summary_length: "short" or "long"
+            
+        Returns:
+            Summary ID
         """
         try:
             with self._lock:
-                history = self._load_history()
+                conn = self._get_connection()
+                cursor = conn.cursor()
                 
-                record = {
-                    "timestamp": datetime.now().isoformat(),
-                    "original_text": original_text[:500],  # Store first 500 chars
-                    "summary": summary,
-                    "summary_length": summary_length,
-                    "original_length": len(original_text),
-                    "summary_ratio": round(len(summary) / len(original_text) * 100, 2) if original_text else 0
-                }
+                # Generate IDs
+                text_id = str(uuid.uuid4())
+                summary_id = str(uuid.uuid4())
                 
-                history.insert(0, record)
-                history = history[:self.max_history]
+                # Calculate metrics
+                original_length = len(original_text)
+                summary_text_length = len(summary_text)
+                compression_ratio = (summary_text_length / original_length * 100) if original_length > 0 else 0
                 
-                self._save_history(history)
+                # Save original text
+                cursor.execute("""
+                    INSERT INTO texts (text_id, user_id, content, length)
+                    VALUES (?, ?, ?, ?)
+                """, (text_id, user_id, original_text, original_length))
+                
+                # Save summary
+                cursor.execute("""
+                    INSERT INTO summaries 
+                    (summary_id, user_id, text_id, original_content, summary_content, 
+                     summary_length, original_length, summary_text_length, compression_ratio)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (summary_id, user_id, text_id, original_text, summary_text,
+                      summary_length, original_length, summary_text_length, compression_ratio))
+                
+                conn.commit()
+                conn.close()
+                
+                return summary_id
         except Exception as e:
-            raise Exception(f"Failed to add summary record: {str(e)}")
+            raise Exception(f"Failed to save summary: {str(e)}")
     
-    def get_summary_history(self) -> List[Dict[str, Any]]:
+    def get_summaries_by_user(self, user_id: str, limit: int = 10) -> List[Dict[str, Any]]:
         """
-        Get summary history (max 10 records)
+        Get summaries for a user - IMPROVED: Return full content
         
+        Args:
+            user_id: User ID
+            limit: Max number of records
+            
         Returns:
             List of summary records
         """
         try:
             with self._lock:
-                history = self._load_history()
-                return history[:self.max_history]
+                conn = self._get_connection()
+                cursor = conn.cursor()
+                
+                cursor.execute("""
+                    SELECT 
+                        summary_id,
+                        original_content,
+                        summary_content,
+                        summary_length,
+                        original_length,
+                        summary_text_length,
+                        compression_ratio,
+                        created_at
+                    FROM summaries
+                    WHERE user_id = ?
+                    ORDER BY created_at DESC
+                    LIMIT ?
+                """, (user_id, limit))
+                
+                rows = cursor.fetchall()
+                conn.close()
+                
+                summaries = []
+                for row in rows:
+                    summaries.append({
+                        "summary_id": row["summary_id"],
+                        "original_text": row["original_content"],  # Full original text
+                        "summary_text": row["summary_content"],    # Full summary
+                        "summary_length": row["summary_length"],
+                        "original_length": row["original_length"],
+                        "summary_length_chars": row["summary_text_length"],
+                        "compression_ratio": round(row["compression_ratio"], 2),
+                        "created_at": row["created_at"]
+                    })
+                
+                return summaries
         except Exception as e:
-            raise Exception(f"Failed to retrieve history: {str(e)}")
+            raise Exception(f"Failed to get summaries: {str(e)}")
     
-    def clear_history(self) -> None:
-        """Clear all history records"""
+    def get_summary_by_id(self, summary_id: str, user_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a specific summary
+        
+        Args:
+            summary_id: Summary ID
+            user_id: User ID (for security)
+            
+        Returns:
+            Summary data or None
+        """
         try:
             with self._lock:
-                self._save_history([])
+                conn = self._get_connection()
+                cursor = conn.cursor()
+                
+                cursor.execute("""
+                    SELECT 
+                        summary_id,
+                        original_content,
+                        summary_content,
+                        summary_length,
+                        original_length,
+                        summary_text_length,
+                        compression_ratio,
+                        created_at
+                    FROM summaries
+                    WHERE summary_id = ? AND user_id = ?
+                """, (summary_id, user_id))
+                
+                row = cursor.fetchone()
+                conn.close()
+                
+                if row:
+                    return {
+                        "summary_id": row["summary_id"],
+                        "original_text": row["original_content"],
+                        "summary_text": row["summary_content"],
+                        "summary_length": row["summary_length"],
+                        "original_length": row["original_length"],
+                        "summary_length_chars": row["summary_text_length"],
+                        "compression_ratio": round(row["compression_ratio"], 2),
+                        "created_at": row["created_at"]
+                    }
+                
+                return None
         except Exception as e:
-            raise Exception(f"Failed to clear history: {str(e)}")
+            raise Exception(f"Failed to get summary: {str(e)}")
     
-    def _load_history(self) -> List[Dict[str, Any]]:
-        """Load history from file"""
+    def delete_summary(self, summary_id: str, user_id: str) -> bool:
+        """
+        Delete a summary
+        
+        Args:
+            summary_id: Summary ID
+            user_id: User ID (for security)
+            
+        Returns:
+            True if deleted
+        """
         try:
-            if self.history_file.exists():
-                with open(self.history_file, 'r', encoding='utf-8') as f:
-                    return json.load(f)
-            return []
+            with self._lock:
+                conn = self._get_connection()
+                cursor = conn.cursor()
+                
+                # Get text_id
+                cursor.execute("SELECT text_id FROM summaries WHERE summary_id = ? AND user_id = ?", 
+                              (summary_id, user_id))
+                row = cursor.fetchone()
+                
+                if not row:
+                    conn.close()
+                    return False
+                
+                text_id = row["text_id"]
+                
+                # Delete summary
+                cursor.execute("DELETE FROM summaries WHERE summary_id = ?", (summary_id,))
+                
+                # Delete text if no other summaries reference it
+                cursor.execute("SELECT COUNT(*) as count FROM summaries WHERE text_id = ?", (text_id,))
+                if cursor.fetchone()["count"] == 0:
+                    cursor.execute("DELETE FROM texts WHERE text_id = ?", (text_id,))
+                
+                conn.commit()
+                conn.close()
+                
+                return True
         except Exception as e:
-            raise Exception(f"Failed to load history: {str(e)}")
+            raise Exception(f"Failed to delete summary: {str(e)}")
     
-    def _save_history(self, history: List[Dict[str, Any]]) -> None:
-        """Save history to file"""
+    def search_summaries(self, user_id: str, query: str) -> List[Dict[str, Any]]:
+        """
+        Search summaries by keyword - IMPROVED: Return full content
+        
+        Args:
+            user_id: User ID
+            query: Search query
+            
+        Returns:
+            List of matching summaries
+        """
         try:
-            with open(self.history_file, 'w', encoding='utf-8') as f:
-                json.dump(history, f, ensure_ascii=False, indent=2)
+            with self._lock:
+                conn = self._get_connection()
+                cursor = conn.cursor()
+                
+                search_query = f"%{query}%"
+                cursor.execute("""
+                    SELECT 
+                        summary_id,
+                        original_content,
+                        summary_content,
+                        summary_length,
+                        original_length,
+                        summary_text_length,
+                        compression_ratio,
+                        created_at
+                    FROM summaries
+                    WHERE user_id = ? 
+                    AND (original_content LIKE ? OR summary_content LIKE ?)
+                    ORDER BY created_at DESC
+                    LIMIT 50
+                """, (user_id, search_query, search_query))
+                
+                rows = cursor.fetchall()
+                conn.close()
+                
+                summaries = []
+                for row in rows:
+                    summaries.append({
+                        "summary_id": row["summary_id"],
+                        "original_text": row["original_content"],  # Full original text
+                        "summary_text": row["summary_content"],    # Full summary
+                        "summary_length": row["summary_length"],
+                        "original_length": row["original_length"],
+                        "compression_ratio": round(row["compression_ratio"], 2),
+                        "created_at": row["created_at"]
+                    })
+                
+                return summaries
         except Exception as e:
-            raise Exception(f"Failed to save history: {str(e)}")
+            raise Exception(f"Failed to search summaries: {str(e)}")
+    
+    def get_user_stats(self, user_id: str) -> Dict[str, Any]:
+        """
+        Get statistics for a user
+        
+        Args:
+            user_id: User ID
+            
+        Returns:
+            User statistics
+        """
+        try:
+            with self._lock:
+                conn = self._get_connection()
+                cursor = conn.cursor()
+                
+                # Total summaries
+                cursor.execute("SELECT COUNT(*) as count FROM summaries WHERE user_id = ?", (user_id,))
+                total_summaries = cursor.fetchone()["count"]
+                
+                # Short vs long
+                cursor.execute("""
+                    SELECT summary_length, COUNT(*) as count 
+                    FROM summaries 
+                    WHERE user_id = ? 
+                    GROUP BY summary_length
+                """, (user_id,))
+                
+                length_counts = {}
+                for row in cursor.fetchall():
+                    length_counts[row["summary_length"]] = row["count"]
+                
+                # Average compression ratio
+                cursor.execute("""
+                    SELECT AVG(compression_ratio) as avg_ratio 
+                    FROM summaries 
+                    WHERE user_id = ?
+                """, (user_id,))
+                
+                avg_ratio = cursor.fetchone()["avg_ratio"] or 0
+                
+                conn.close()
+                
+                return {
+                    "total_summaries": total_summaries,
+                    "short_summaries": length_counts.get("short", 0),
+                    "long_summaries": length_counts.get("long", 0),
+                    "average_compression_ratio": round(avg_ratio, 2)
+                }
+        except Exception as e:
+            raise Exception(f"Failed to get user stats: {str(e)}")
