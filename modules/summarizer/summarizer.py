@@ -1,6 +1,7 @@
 """
 @ file modules/summarizer/summarizer.py
 @ Copyright (C) 2025 by Gia-Huy Do & HHL Team
+@ v0,95 change: Longer + More accurate summaries
 """
 import torch
 import re
@@ -15,7 +16,7 @@ from modules.module_configs import ModuleConfigs
 
 
 class Summarizer:
-    """High-performance T5 summarizer with smart chunking"""
+    """Final optimized T5 summarizer: Longer outputs + Better accuracy"""
     
     def __init__(self, config: ModuleConfigs = None):
         self.config = config or ModuleConfigs()
@@ -73,6 +74,8 @@ class Summarizer:
             print(f"   Optimizations: Chunking={'✓' if self.config.USE_SMART_CHUNKING else '✗'}, "
                   f"Beams={self.config.SHORT_NUM_BEAMS}/{self.config.LONG_NUM_BEAMS}, "
                   f"Caching={'✓' if self.config.ENABLE_CACHING else '✗'}")
+            print(f"   Target lengths: Short={self.config.SUMMARY_MIN_LENGTH_SHORT}-{self.config.SUMMARY_MAX_LENGTH_SHORT}, "
+                  f"Long={self.config.SUMMARY_MIN_LENGTH_LONG}-{self.config.SUMMARY_MAX_LENGTH_LONG}")
         except Exception as e:
             raise Exception(f"Failed to load model: {str(e)}")
     
@@ -93,6 +96,9 @@ class Summarizer:
             print(f"Warning: Failed to unload model: {str(e)}")
     
     def _split_into_chunks(self, text: str, chunk_size: int, overlap: int) -> List[str]:
+        """
+        Chia text thành chunks với overlap - IMPROVED
+        """
         if len(text) <= chunk_size:
             return [text]
         
@@ -104,8 +110,8 @@ class Summarizer:
             
             # Nếu không phải chunk cuối, tìm sentence boundary
             if end < len(text):
-                # Tìm dấu câu gần nhất trong 100 chars cuối của chunk
-                search_start = max(end - 100, start)
+                # Tìm dấu câu gần nhất trong 150 chars cuối (tăng từ 100)
+                search_start = max(end - 150, start)
                 last_period = max(
                     text.rfind('.', search_start, end),
                     text.rfind('!', search_start, end),
@@ -134,10 +140,17 @@ class Summarizer:
         return chunks
     
     def _merge_chunk_summaries(self, chunk_summaries: List[str]) -> str:
+        """
+        Merge summaries từ nhiều chunks - IMPROVED
+        
+        Improvements:
+        - Tốt hơn trong việc loại bỏ duplicates
+        - Giữ coherence giữa các chunks
+        """
         if len(chunk_summaries) == 1:
             return chunk_summaries[0]
         
-        # Merge bằng cách nối lại với smooth transition
+        # Merge bằng cách nối lại
         merged = " ".join(chunk_summaries)
         
         # Clean up duplicates và redundancy
@@ -148,13 +161,16 @@ class Summarizer:
         for sent in sentences:
             # Normalize để check duplicate
             normalized = ' '.join(sent.lower().split())
-            if normalized not in seen and len(normalized) > 20:
+            
+            # Chỉ thêm nếu chưa thấy và đủ dài
+            if normalized not in seen and len(normalized) > 15:  # Giảm từ 20 → 15
                 unique_sentences.append(sent)
                 seen.add(normalized)
         
         return ' '.join(unique_sentences)
     
     def _fast_spell_check(self, text: str) -> str:
+        """Fast spell check chỉ dùng dictionary"""
         if not self.config.ENABLE_SPELL_CHECK or not self.config.COMMON_FIXES:
             return text
         
@@ -181,8 +197,8 @@ class Summarizer:
         
         return ' '.join(fixed_words)
     
-    # Ensure summary ends with complete sentence
     def _ensure_complete_sentence(self, text: str) -> str:
+        """Đảm bảo văn bản kết thúc bằng câu hoàn chỉnh"""
         if not text or not text.strip():
             return text
         
@@ -198,24 +214,23 @@ class Summarizer:
             text.rfind('?')
         )
         
-        if last_period > len(text) * 0.7:  # Chỉ cắt nếu gần cuối
+        # Chỉ cắt nếu dấu câu ở gần cuối (70% → 65% để giữ nhiều hơn)
+        if last_period > len(text) * 0.65:
             return text[:last_period + 1].strip()
         
         return text + "."
     
     def _clean_summary_text(self, text: str) -> str:
+        """Làm sạch văn bản tóm tắt"""
         text = ' '.join(text.split())
-        # Sửa dấu câu bị dính
         text = re.sub(r'([.!?])([A-Z])', r'\1 \2', text)
-        # Xóa dấu câu lặp
         text = re.sub(r'([.!?]){2,}', r'\1', text)
-        # Sửa khoảng trắng trước dấu câu
         text = re.sub(r'\s+([.,!?;:])', r'\1', text)
         return text.strip()
     
     def _tokenize_with_cache(self, text: str, max_length: int) -> Dict:
+        """Tokenize với caching"""
         if not self._token_cache:
-            # No caching
             return self.tokenizer(
                 text,
                 max_length=max_length,
@@ -223,13 +238,11 @@ class Summarizer:
                 return_tensors="pt"
             ).to(self.device)
         
-        # Check cache
-        cache_key = hash(text[:100])  # Cache key từ 100 chars đầu
+        cache_key = hash(text[:100])
         
         if cache_key in self._token_cache:
             return self._token_cache[cache_key]
         
-        # Tokenize và cache
         inputs = self.tokenizer(
             text,
             max_length=max_length,
@@ -237,15 +250,20 @@ class Summarizer:
             return_tensors="pt"
         ).to(self.device)
         
-        # Giới hạn cache size
         if len(self._token_cache) > 50:
-            # Xóa entry cũ nhất
             self._token_cache.pop(next(iter(self._token_cache)))
         
         self._token_cache[cache_key] = inputs
         return inputs
     
     def _generate_summary_single(self, text: str, config: Dict) -> str:
+        """
+        Sinh tóm tắt một lần - IMPROVED với temperature và top_p   
+        Improvements (2025/06/12):
+        - Thêm temperature control
+        - Thêm top_p sampling
+        - Thêm do_sample option
+        """
         # Prefix
         if config.get('prefix'):
             input_text = config['prefix'] + text
@@ -257,20 +275,38 @@ class Summarizer:
         inputs = self._tokenize_with_cache(input_text, 512)
         self._stats["tokenization_time"] += time.time() - start_time
         
-        # Generate
+        # ============================================================
+        # IMPROVED: Generation với temperature và sampling
+        # ============================================================
         start_time = time.time()
+        
+        generation_params = {
+            "input_ids": inputs["input_ids"],
+            "min_length": config['min_length'],
+            "max_length": config['max_length'] + 30,  # Buffer nhỏ
+            "num_beams": config['num_beams'],
+            "length_penalty": config['length_penalty'],
+            "repetition_penalty": config['repetition_penalty'],
+            "no_repeat_ngram_size": config['no_repeat_ngram_size'],
+            "early_stopping": config['early_stopping']
+        }
+        
+        # Thêm temperature và top_p nếu có
+        if 'temperature' in config and config['temperature'] > 0:
+            generation_params['temperature'] = config['temperature']
+        
+        if 'top_p' in config:
+            generation_params['top_p'] = config['top_p']
+        
+        # Sampling
+        if config.get('do_sample', False):
+            generation_params['do_sample'] = True
+        else:
+            generation_params['do_sample'] = False
+        
         with torch.no_grad():
-            summary_ids = self.model.generate(
-                inputs["input_ids"],
-                min_length=config['min_length'],
-                max_length=config['max_length'] + 20,
-                num_beams=config['num_beams'],
-                length_penalty=config['length_penalty'],
-                repetition_penalty=config['repetition_penalty'],
-                no_repeat_ngram_size=config['no_repeat_ngram_size'],
-                early_stopping=config['early_stopping'],
-                do_sample=False
-            )
+            summary_ids = self.model.generate(**generation_params)
+        
         self._stats["generation_time"] += time.time() - start_time
         
         # Decode
@@ -283,6 +319,7 @@ class Summarizer:
         return summary
     
     def _post_process_summary(self, summary: str) -> str:
+        """Post-processing nhanh"""
         start_time = time.time()
         
         # 1. Clean
@@ -300,6 +337,7 @@ class Summarizer:
         return summary
     
     def summarize(self, text: str, summary_length: str = "short") -> str:
+        """Generate summary for the given text"""
         try:
             if self.model is None or self.tokenizer is None:
                 raise Exception("Model not loaded. Call load_model() first.")
@@ -309,17 +347,19 @@ class Summarizer:
             # Lấy cấu hình
             config = self.config.get_summary_config(summary_length)
             
-            print(f"\n📝 Generating {summary_length} summary (Performance Mode)...")
-            print(f"   Target: {config['min_length']}-{config['max_length']} tokens")
-            print(f"   Beams: {config['num_beams']} (optimized)")
+            print(f"\n📝 Generating {summary_length} summary (Final Optimized)...")
+            print(f"   Target: {config['min_length']}-{config['max_length']} tokens " +
+                  f"(~{config['min_length']//1.3:.0f}-{config['max_length']//1.3:.0f} words)")
+            print(f"   Beams: {config['num_beams']}, Penalty: {config['length_penalty']}, " +
+                  f"Temp: {config.get('temperature', 'N/A')}")
             
             # ============================================================
-            # SMART CHUNKING: Xử lý văn bản dài (HHL Team method)
+            # SMART CHUNKING: Xử lý văn bản dài (IMPROVED)
             # ============================================================
             if config.get('use_chunking') and len(text) > config['input_max_chars']:
-                print(f"   Input: {len(text)} chars → Using smart chunking")
+                print(f"   Input: {len(text)} chars → Using improved chunking")
                 
-                # Chia thành chunks
+                # Chia thành chunks với params cải tiến
                 chunks = self._split_into_chunks(
                     text,
                     self.config.CHUNK_SIZE,
@@ -335,12 +375,12 @@ class Summarizer:
                     summary = self._generate_summary_single(chunk, config)
                     chunk_summaries.append(summary)
                 
-                # Merge summaries
+                # Merge summaries với improved algorithm
                 summary_text = self._merge_chunk_summaries(chunk_summaries)
                 print(f"   ✓ Merged {len(chunk_summaries)} chunk summaries")
                 
             else:
-                # Simple truncate cho văn bản ngắn
+                # Simple process cho văn bản ngắn
                 if len(text) > config['input_max_chars']:
                     text = text[:config['input_max_chars']]
                     print(f"   Input: {len(text)} chars (truncated)")
@@ -368,6 +408,13 @@ class Summarizer:
                   f"Gen={self._stats['generation_time']:.2f}s, "
                   f"Post={self._stats['postprocess_time']:.2f}s")
             print(f"   Ends with: '{result[-1]}' ✓")
+            
+            # Validate length
+            expected_min = config['min_length'] // 1.5  # Rough estimate: 1.5 chars/token
+            if word_count < expected_min:
+                print(f"   ⚠️ Warning: Output shorter than expected (got {word_count}, expected >{expected_min:.0f})")
+            else:
+                print(f"   ✓ Length within expected range")
             
             # Reset stats
             self._stats = {k: 0 for k in self._stats}
