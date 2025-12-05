@@ -1,5 +1,6 @@
 """
-Summary evaluation and quality assessment module
+@ file modules/summarizer/summary_evaluator.py
+@ Copyright (C) 2025 by Gia-Huy Do & HHL Team
 """
 from typing import Dict
 
@@ -14,12 +15,7 @@ class SummaryEvaluator:
         """
         Calculate compression ratio
         
-        Args:
-            original_text: Original text
-            summary: Generated summary
-            
-        Returns:
-            Compression ratio as percentage
+        Cong thuc: (length of summary / length of original text) * 100
         """
         try:
             if not original_text:
@@ -34,12 +30,7 @@ class SummaryEvaluator:
         """
         Evaluate the quality of generated summary
         
-        Args:
-            original_text: Original text
-            summary: Generated summary
-            
-        Returns:
-            Dictionary with evaluation metrics
+        Danh gia chat luong tom tat su dung cac chi so co ban
         """
         try:
             metrics = {
@@ -58,12 +49,7 @@ class SummaryEvaluator:
         """
         Validate if summary is acceptable
         
-        Args:
-            summary: Summary text to validate
-            min_length: Minimum acceptable length
-            
-        Returns:
-            Dictionary with validation result
+        Thuat toan: Kiem tra do dai toi thieu va cau chuan
         """
         try:
             result = {
@@ -85,3 +71,4 @@ class SummaryEvaluator:
             return result
         except Exception as e:
             raise Exception(f"Summary validation failed: {str(e)}")
+        

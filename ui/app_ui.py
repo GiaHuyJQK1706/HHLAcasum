@@ -1,5 +1,6 @@
 """
-Enhanced Gradio UI Application - FINAL FIXED VERSION (REFACTORED)
+@ file ui/app_ui.py
+@ Copyright (C) 2025 by Gia-Huy Do & HHL Team
 """
 import gradio as gr
 from ui.event_handles import EventHandles
@@ -30,10 +31,10 @@ class AppUI:
     def _create_interface(self):
         """Create the Gradio interface"""
 
-        with gr.Blocks(title="Academic Text Summarizer", theme=gr.themes.Soft()) as interface:
+        with gr.Blocks(title="HHL Acusum", theme=gr.themes.Soft()) as interface:
             gr.Markdown(
                 """
-            # 📚 Academic Text Summarizer
+            # 📚 HHL Acusum
 
             A powerful application for summarizing academic texts using state-of-the-art Transformer models.
             """
@@ -52,8 +53,8 @@ class AppUI:
             </style>
             """)
 
-            with gr.Tab("📝 Main"):
-                gr.Markdown("### Step 1: Import Text")
+            with gr.Tab("Summarization"):
+                gr.Markdown("### Import Text")
 
                 with gr.Row():
                     with gr.Column():
@@ -74,11 +75,11 @@ class AppUI:
                         import_text_btn = gr.Button("📝 Import Text", variant="primary")
 
                 # Preview section - fixed (no max_lines None)
-                gr.Markdown("### Text Preview (Full Content)")
+                gr.Markdown("### Text Preview")
                 preview_text = gr.Textbox(
                     label="📄 Complete Input Text",
-                    lines=10,
-                    max_lines=7500,
+                    lines=5,
+                    max_lines=14,
                     interactive=False,
                     placeholder="Text preview will appear here...",
                     show_copy_button=True,
@@ -92,7 +93,7 @@ class AppUI:
                 )
 
                 # Summarization section
-                gr.Markdown("### Step 2: Summarize")
+                gr.Markdown("### Summarize")
                 with gr.Row():
                     summary_length = gr.Radio(
                         choices=["short", "long"],
@@ -102,7 +103,7 @@ class AppUI:
                     summarize_btn = gr.Button("🚀 Generate Summary", variant="primary")
 
                 # Result section
-                gr.Markdown("### Step 3: View Result & Download")
+                gr.Markdown("### View Result & Download")
                 with gr.Row():
                     view_result_btn = gr.Button("👁️ View Summary", scale=1)
                     view_error_btn = gr.Button("⚠️ View Error", scale=1)
@@ -165,7 +166,7 @@ class AppUI:
                 )
 
             # History Tab - use HTML rendering for stability
-            with gr.Tab("📜 History"):
+            with gr.Tab("Summary History"):
                 gr.Markdown("### 📚 Summary History")
 
                 with gr.Row():
@@ -211,10 +212,12 @@ class AppUI:
 
                 def clear_all():
                     result = self.event_handles.on_clear_history_clicked()
-                    if result.get('success'):
-                        return f"<p style='color:green;'>✅ {result.get('message','History cleared')}</p>"
+
+                    if "Error" in result or "Failed" in result:
+                        return f"<p style='color:red;'>❌ {result}</p>"
                     else:
-                        return f"<p style='color:red;'>❌ {result.get('message','Failed to clear')}</p>"
+                        return f"<p style='color:green;'>✅ {result}</p>"
+
 
                 refresh_history_btn.click(fn=refresh_history, outputs=[history_display])
                 search_btn.click(fn=search_history, inputs=[search_query], outputs=[history_display])
@@ -222,7 +225,7 @@ class AppUI:
                 clear_history_btn.click(fn=clear_all, outputs=[history_display])
 
             # About Tab
-            with gr.Tab("ℹ️ About"):
+            with gr.Tab("About us"):
                 gr.Markdown(
                     """
                 ## About Academic Text Summarizer

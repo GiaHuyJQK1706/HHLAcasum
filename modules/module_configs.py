@@ -1,6 +1,6 @@
 """
-Configuration for modules - PERFORMANCE OPTIMIZED VERSION
-Tối ưu tốc độ trong khi giữ chất lượng cao
+@ file modules/module_configs.py
+@ Copyright (C) 2025 by Gia-Huy Do & HHL Team
 """
 from dataclasses import dataclass
 from typing import Dict, Any
@@ -95,7 +95,7 @@ class ModuleConfigs:
         if self.ALLOWED_FILE_TYPES is None:
             self.ALLOWED_FILE_TYPES = [".txt", ".pdf", ".docx"]
         
-        # Expanded common fixes
+        # Expanded common fixes (Fast execution)
         if self.COMMON_FIXES is None:
             self.COMMON_FIXES = {
                 # Basic typos

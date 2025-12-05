@@ -1,5 +1,6 @@
 """
-Event Handlers for UI events
+@ file ui/event_handles.py
+@ Copyright (C) 2025 by Gia-Huy Do & HHL Team
 """
 from typing import Optional, Tuple
 from pathlib import Path
@@ -16,12 +17,6 @@ class EventHandles:
         self.model_initialized = False
     
     def initialize_model(self) -> Tuple[bool, str]:
-        """
-        Initialize model on first use
-        
-        Returns:
-            Tuple of (success, message)
-        """
         try:
             if self.model_initialized:
                 return True, "Model already initialized"
@@ -41,15 +36,6 @@ class EventHandles:
             return False, f"Model initialization failed: {error_msg}"
     
     def on_import_file_clicked(self, file_obj) -> Tuple[str, str, str]:
-        """
-        Handle file import event
-        
-        Args:
-            file_obj: File object from Gradio
-            
-        Returns:
-            Tuple of (status_message, preview_text, display_or_error)
-        """
         try:
             if file_obj is None:
                 return "⚠️ Please select a file", "", "❌ Error"
@@ -69,15 +55,6 @@ class EventHandles:
             return f"❌ {error_msg}", "", "❌ Error"
     
     def on_import_text_direct(self, text: str) -> Tuple[str, str, str]:
-        """
-        Handle direct text import event
-        
-        Args:
-            text: Input text from user
-            
-        Returns:
-            Tuple of (status_message, preview_text, display_or_error)
-        """
         try:
             if not text or not text.strip():
                 return "⚠️ Please enter some text", "", "❌ Error"
@@ -85,7 +62,7 @@ class EventHandles:
             result = self.main_controller.import_text_direct(text)
             
             if result["success"]:
-                preview = result["text"][:500] + ("..." if len(result["text"]) > 500 else "")
+                preview = result["text"][:16384] + ("..." if len(result["text"]) > 16384 else "")
                 return f"✅ {result['message']}", preview, "📄 Success"
             else:
                 self.error_controller.log_error(result["message"], "validation")
@@ -97,15 +74,6 @@ class EventHandles:
             return f"❌ {error_msg}", "", "❌ Error"
     
     def on_summarize_clicked(self, summary_length: str) -> Tuple[str, str, str]:
-        """
-        Handle summarize button click event
-        
-        Args:
-            summary_length: Selected summary length (short/long)
-            
-        Returns:
-            Tuple of (status_message, summary_text, display_result)
-        """
         try:
             # Initialize model if not already done
             if not self.model_initialized:
@@ -140,12 +108,6 @@ class EventHandles:
             return f"❌ {error_msg}", "", "❌ Error"
     
     def on_view_result_clicked(self) -> str:
-        """
-        Handle view result button click
-        
-        Returns:
-            Current summary text
-        """
         try:
             summary = self.main_controller.get_current_summary()
             if not summary:
@@ -156,12 +118,6 @@ class EventHandles:
             return f"Error: {error_msg}"
     
     def on_view_error_clicked(self) -> str:
-        """
-        Handle view error button click
-        
-        Returns:
-            Last error message
-        """
         try:
             error = self.main_controller.get_last_error()
             if not error:
@@ -171,12 +127,6 @@ class EventHandles:
             return f"Error retrieving error message: {str(e)}"
         
     def on_view_stats_clicked(self) -> str:
-        """
-        Handle view statistics button click
-        
-        Returns:
-            Formatted statistics string
-        """
         try:
             stats = self.main_controller.get_user_stats()
             if not stats:
@@ -188,12 +138,6 @@ class EventHandles:
             
     
     def on_view_history_clicked(self) -> str:
-        """
-        Handle view history button click with FULL content display
-        
-        Returns:
-            Formatted history with complete text as plain text (better for Textbox)
-        """
         try:
             history = self.main_controller.get_summary_history()
             if not history:
@@ -229,15 +173,6 @@ class EventHandles:
             return f"Error retrieving history: {error_msg}"
     
     def on_search_history_clicked(self, query: str) -> str:
-        """
-        Search summaries by keyword - IMPROVED: Show full content
-        
-        Args:
-            query: Search query
-            
-        Returns:
-            Formatted search results with complete content as plain text
-        """
         try:
             results = self.main_controller.search_summaries(query)
             if not results:
@@ -272,12 +207,6 @@ class EventHandles:
             return f"Error searching summaries: {error_msg}"
     
     def on_view_history_clicked_json(self) -> list:
-        """
-        Get history as JSON data (for optimized UI)
-        
-        Returns:
-            List of history records as dictionaries
-        """
         try:
             return self.main_controller.get_summary_history()
         except Exception as e:
@@ -286,15 +215,6 @@ class EventHandles:
             return []
     
     def on_search_history_clicked_json(self, query: str) -> list:
-        """
-        Search summaries as JSON data (for optimized UI)
-        
-        Args:
-            query: Search query
-            
-        Returns:
-            List of matching summaries as dictionaries
-        """
         try:
             if not query or not query.strip():
                 return []
@@ -358,29 +278,17 @@ Average Compression Ratio:      {}%
             return f"Error retrieving statistics: {error_msg}"
     
     def on_clear_history_clicked(self) -> str:
-        """
-        Clear all history
-        
-        Returns:
-            Confirmation message
-        """
         try:
             result = self.main_controller.clear_history()
             if result.get("success"):
-                return f"✅ {result.get('message', 'History cleared')}"
+                return f"{result.get('message', 'History cleared')}"
             else:
-                return f"❌ {result.get('message', 'Failed to clear history')}"
+                return f"{result.get('message', 'Failed to clear history')}"
         except Exception as e:
             error_msg = self.error_controller.get_error_message(e)
-            return f"❌ Error: {error_msg}"
+            return f"Error: {error_msg}"
     
     def on_export_txt(self) -> Tuple[str, str]:
-        """
-        Handle export as TXT - FIXED: Create actual file and return path
-        
-        Returns:
-            Tuple of (file_path_for_download, status_message)
-        """
         try:
             summary = self.main_controller.get_current_summary()
             if not summary:
@@ -414,12 +322,6 @@ Average Compression Ratio:      {}%
             return None, f"❌ Export failed: {error_msg}"
     
     def on_clear_session(self) -> str:
-        """
-        Handle clear session
-        
-        Returns:
-            Confirmation message
-        """
         try:
             self.main_controller.clear_session()
             return "✅ Session cleared successfully"

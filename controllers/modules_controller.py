@@ -1,5 +1,6 @@
 """
-Modules Controller for managing preprocessing and summarization modules
+@ file controllers/modules_controller.py
+@ Copyright (C) 2025 by Gia-Huy Do & HHL Team
 """
 from typing import Dict, Optional
 from modules.module_configs import ModuleConfigs
@@ -25,15 +26,6 @@ class ModulesController:
         return self.available_models
     
     def change_model(self, model_name: str) -> bool:
-        """
-        Change the current model
-        
-        Args:
-            model_name: Name of the model to load
-            
-        Returns:
-            True if successful, False otherwise
-        """
         try:
             if model_name not in self.available_models:
                 raise ValueError(f"Model {model_name} not available")
@@ -52,12 +44,6 @@ class ModulesController:
             return False
     
     def preload_models(self) -> Dict[str, bool]:
-        """
-        Preload all models
-        
-        Returns:
-            Dictionary with model load status
-        """
         try:
             result = {}
             
@@ -76,45 +62,18 @@ class ModulesController:
         return self.available_models
     
     def preprocess_text(self, text: str) -> str:
-        """
-        Preprocess input text
-        
-        Args:
-            text: Input text
-            
-        Returns:
-            Preprocessed text
-        """
         try:
             return self.preprocessing.process(text)
         except Exception as e:
             raise Exception(f"Preprocessing failed: {str(e)}")
     
     def validate_and_extract_file(self, filepath: str) -> str:
-        """
-        Validate file format and extract text
-        
-        Args:
-            filepath: Path to the file
-            
-        Returns:
-            Extracted text
-        """
         try:
             return self.input_processing.extract_from_filepath(filepath)
         except Exception as e:
             raise Exception(f"File extraction failed: {str(e)}")
     
     def validate_input_text(self, text: str) -> dict:
-        """
-        Validate input text
-        
-        Args:
-            text: Text to validate
-            
-        Returns:
-            Validation result dictionary
-        """
         try:
             return self.input_processing.validate_input(text)
         except Exception as e:
@@ -124,16 +83,6 @@ class ModulesController:
             }
     
     def summarize_text(self, text: str, summary_length: str = "short") -> str:
-        """
-        Summarize input text
-        
-        Args:
-            text: Text to summarize
-            summary_length: Length of summary (short or long)
-            
-        Returns:
-            Generated summary
-        """
         try:
             if not self._model_loaded:
                 raise Exception("Model not loaded. Call preload_models() first.")
@@ -145,3 +94,4 @@ class ModulesController:
     def is_model_ready(self) -> bool:
         """Check if model is ready for summarization"""
         return self._model_loaded and self.summarizer.is_model_loaded()
+    

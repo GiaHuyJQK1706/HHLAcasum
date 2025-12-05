@@ -1,5 +1,6 @@
 """
-Model Setup Helper - Kiểm tra và setup model cục bộ
+@ file model_setup.py: Model Setup Helper - Kiểm tra và setup model cục bộ
+@ Copyright (C) 2025 by HHL Team
 """
 import os
 from pathlib import Path
@@ -9,7 +10,6 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 def check_local_model(model_path: str = "./models/hhlai_academic_textsum") -> bool:
     """
     Kiểm tra xem model cục bộ có tồn tại và hoàn chỉnh không
-    
     Args:
         model_path: Đường dẫn đến thư mục model
         
@@ -54,11 +54,9 @@ def check_local_model(model_path: str = "./models/hhlai_academic_textsum") -> bo
 
 def setup_local_model(model_path: str = "./models/hhlai_academic_textsum") -> bool:
     """
-    Setup model cục bộ - Tạo thư mục nếu không tồn tại
-    
+    Setup model cục bộ - Tạo thư mục nếu không tồn tại  
     Args:
-        model_path: Đường dẫn đến thư mục model
-        
+        model_path: Đường dẫn đến thư mục model     
     Returns:
         True nếu setup thành công
     """
@@ -77,13 +75,11 @@ def download_and_setup_model(
     force_download: bool = False
 ) -> bool:
     """
-    Download model từ HuggingFace và lưu cục bộ
-    
+    Download model từ HuggingFace và lưu cục bộ  
     Args:
         model_name: Model name từ HuggingFace
         model_path: Đường dẫn lưu cục bộ
-        force_download: Force re-download nếu đã tồn tại
-        
+        force_download: Force re-download nếu đã tồn tại   
     Returns:
         True nếu download thành công
     """
@@ -124,11 +120,9 @@ def download_and_setup_model(
 
 def verify_model_files(model_path: str = "./models/hhlai_academic_textsum") -> dict:
     """
-    Kiểm tra và liệt kê các file trong thư mục model
-    
+    Kiểm tra và liệt kê các file trong thư mục model  
     Args:
-        model_path: Đường dẫn đến thư mục model
-        
+        model_path: Đường dẫn đến thư mục model     
     Returns:
         Dictionary với thông tin files
     """
@@ -164,7 +158,6 @@ def verify_model_files(model_path: str = "./models/hhlai_academic_textsum") -> d
 def print_model_info(model_path: str = "./models/hhlai_academic_textsum"):
     """
     In thông tin chi tiết về model
-    
     Args:
         model_path: Đường dẫn đến thư mục model
     """

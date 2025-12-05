@@ -1,5 +1,6 @@
 """
-Main application entry point for Academic Text Summarizer
+@ app.py: Main application entry point for Academic Text Summarizer
+@ Copyright (C) 2025 by Gia-Huy Do & HHL Team
 """
 import sys
 import os
@@ -83,3 +84,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    

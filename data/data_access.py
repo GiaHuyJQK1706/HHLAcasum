@@ -1,5 +1,7 @@
 """
-Database Layer - SQLite for managing summaries and texts
+@ file data/data_access.py
+@ Copyright (C) 2025 by Gia-Huy Do & HHL Team
+@ SQLite database access and management for summaries
 """
 import sqlite3
 import json
@@ -78,15 +80,6 @@ class DataAccess:
             raise Exception(f"Failed to initialize database: {str(e)}")
     
     def get_or_create_user(self, user_id: Optional[str] = None) -> str:
-        """
-        Get or create a user
-        
-        Args:
-            user_id: User ID (if None, generate new)
-            
-        Returns:
-            User ID
-        """
         try:
             with self._lock:
                 if user_id is None:
@@ -110,20 +103,7 @@ class DataAccess:
         except Exception as e:
             raise Exception(f"Failed to get or create user: {str(e)}")
     
-    def save_summary(self, user_id: str, original_text: str, summary_text: str, 
-                    summary_length: str) -> str:
-        """
-        Save summary to database
-        
-        Args:
-            user_id: User ID
-            original_text: Original text
-            summary_text: Generated summary
-            summary_length: "short" or "long"
-            
-        Returns:
-            Summary ID
-        """
+    def save_summary(self, user_id: str, original_text: str, summary_text: str, summary_length: str) -> str:
         try:
             with self._lock:
                 conn = self._get_connection()
@@ -161,16 +141,6 @@ class DataAccess:
             raise Exception(f"Failed to save summary: {str(e)}")
     
     def get_summaries_by_user(self, user_id: str, limit: int = 10) -> List[Dict[str, Any]]:
-        """
-        Get summaries for a user - IMPROVED: Return full content
-        
-        Args:
-            user_id: User ID
-            limit: Max number of records
-            
-        Returns:
-            List of summary records
-        """
         try:
             with self._lock:
                 conn = self._get_connection()
@@ -213,16 +183,6 @@ class DataAccess:
             raise Exception(f"Failed to get summaries: {str(e)}")
     
     def get_summary_by_id(self, summary_id: str, user_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Get a specific summary
-        
-        Args:
-            summary_id: Summary ID
-            user_id: User ID (for security)
-            
-        Returns:
-            Summary data or None
-        """
         try:
             with self._lock:
                 conn = self._get_connection()
@@ -262,16 +222,6 @@ class DataAccess:
             raise Exception(f"Failed to get summary: {str(e)}")
     
     def delete_summary(self, summary_id: str, user_id: str) -> bool:
-        """
-        Delete a summary
-        
-        Args:
-            summary_id: Summary ID
-            user_id: User ID (for security)
-            
-        Returns:
-            True if deleted
-        """
         try:
             with self._lock:
                 conn = self._get_connection()
@@ -304,16 +254,6 @@ class DataAccess:
             raise Exception(f"Failed to delete summary: {str(e)}")
     
     def search_summaries(self, user_id: str, query: str) -> List[Dict[str, Any]]:
-        """
-        Search summaries by keyword - IMPROVED: Return full content
-        
-        Args:
-            user_id: User ID
-            query: Search query
-            
-        Returns:
-            List of matching summaries
-        """
         try:
             with self._lock:
                 conn = self._get_connection()
@@ -357,15 +297,6 @@ class DataAccess:
             raise Exception(f"Failed to search summaries: {str(e)}")
     
     def get_user_stats(self, user_id: str) -> Dict[str, Any]:
-        """
-        Get statistics for a user
-        
-        Args:
-            user_id: User ID
-            
-        Returns:
-            User statistics
-        """
         try:
             with self._lock:
                 conn = self._get_connection()
@@ -406,3 +337,4 @@ class DataAccess:
                 }
         except Exception as e:
             raise Exception(f"Failed to get user stats: {str(e)}")
+        

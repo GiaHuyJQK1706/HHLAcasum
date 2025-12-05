@@ -1,5 +1,6 @@
 """
-Main Controller - Orchestrates all operations
+@ file controllers/main_controller.py
+@ Copyright (C) 2025 by Gia-Huy Do & HHL Team
 """
 from typing import Dict, Optional
 from controllers.modules_controller import ModulesController
@@ -131,15 +132,6 @@ class MainController:
             }
     
     def summarize_current_text(self, summary_length: str = "short") -> Dict:
-        """
-        Summarize the current imported text (UC02)
-        
-        Args:
-            summary_length: Length of summary (short or long)
-            
-        Returns:
-            Status and generated summary
-        """
         try:
             if not self.current_text:
                 raise Exception("No text to summarize. Please import text first.")
@@ -235,3 +227,4 @@ class MainController:
         self.current_text = None
         self.current_summary = None
         self.last_error = None
+        

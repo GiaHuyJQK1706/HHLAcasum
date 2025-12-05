@@ -1,5 +1,6 @@
 """
-Input file processing module for handling various file formats
+@ file modules/preprocessing/input_processing.py
+@ Copyright (C) 2025 by Gia-Huy Do & HHL Team
 """
 from pathlib import Path
 from typing import Tuple
@@ -13,15 +14,6 @@ class InputProcessing:
         self.config = config or ModuleConfigs()
     
     def validate_input(self, text: str) -> dict:
-        """
-        Validate input text
-        
-        Args:
-            text: Input text to validate
-            
-        Returns:
-            Dictionary with validation result and message
-        """
         try:
             if not text or not text.strip():
                 return {
@@ -54,15 +46,6 @@ class InputProcessing:
             }
     
     def clean_text(self, text: str) -> str:
-        """
-        Clean extracted text
-        
-        Args:
-            text: Raw text to clean
-            
-        Returns:
-            Cleaned text
-        """
         try:
             # Remove extra whitespace
             text = ' '.join(text.split())
@@ -73,15 +56,6 @@ class InputProcessing:
             raise Exception(f"Text cleaning failed: {str(e)}")
     
     def extract_from_file(self, filepath: str) -> str:
-        """
-        Extract text from uploaded file
-        
-        Args:
-            filepath: Path to the file
-            
-        Returns:
-            Extracted text
-        """
         try:
             path = Path(filepath)
             
@@ -148,13 +122,5 @@ class InputProcessing:
             raise Exception(f"Failed to extract from .docx file: {str(e)}")
     
     def extract_from_filepath(self, filepath: str) -> str:
-        """
-        Extract text from file path
-        
-        Args:
-            filepath: Path to the file
-            
-        Returns:
-            Extracted text
-        """
         return self.extract_from_file(filepath)
+    

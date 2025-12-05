@@ -1,5 +1,6 @@
 """
-Error Controller - Centralized error handling
+@ file controllers/error_controller.py
+@ Copyright (C) 2025 by Gia-Huy Do & HHL Team
 """
 from typing import Dict, Any
 from datetime import datetime
@@ -13,16 +14,6 @@ class ErrorController:
         self.max_errors_stored = 100
     
     def log_error(self, error_message: str, error_type: str = "general") -> Dict[str, Any]:
-        """
-        Log an error
-        
-        Args:
-            error_message: Error message
-            error_type: Type of error (validation, file, processing, model, system)
-            
-        Returns:
-            Error record
-        """
         error_record = {
             "timestamp": datetime.now().isoformat(),
             "type": error_type,
@@ -38,15 +29,6 @@ class ErrorController:
         return error_record
     
     def get_error_message(self, error: Exception) -> str:
-        """
-        Get user-friendly error message
-        
-        Args:
-            error: Exception object
-            
-        Returns:
-            User-friendly error message
-        """
         error_str = str(error)
         
         # Provide user-friendly messages for common errors
@@ -66,15 +48,6 @@ class ErrorController:
             return f"An error occurred: {error_str}"
     
     def get_errors(self, limit: int = 10) -> list:
-        """
-        Get recent errors
-        
-        Args:
-            limit: Maximum number of errors to return
-            
-        Returns:
-            List of error records
-        """
         return self.errors[-limit:]
     
     def clear_errors(self) -> None:
@@ -82,12 +55,7 @@ class ErrorController:
         self.errors = []
     
     def get_error_report(self) -> Dict[str, Any]:
-        """
-        Get error report
-        
-        Returns:
-            Error report dictionary
-        """
+        """Generate a summary report of errors"""
         return {
             "total_errors": len(self.errors),
             "recent_errors": self.get_errors(5),

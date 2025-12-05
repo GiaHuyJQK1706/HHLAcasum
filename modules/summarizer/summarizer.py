@@ -1,3 +1,7 @@
+"""
+@ file modules/summarizer/summarizer.py
+@ Copyright (C) 2025 by Gia-Huy Do & HHL Team
+"""
 import torch
 import re
 import time
@@ -310,7 +314,7 @@ class Summarizer:
             print(f"   Beams: {config['num_beams']} (optimized)")
             
             # ============================================================
-            # SMART CHUNKING: Xử lý văn bản dài
+            # SMART CHUNKING: Xử lý văn bản dài (HHL Team method)
             # ============================================================
             if config.get('use_chunking') and len(text) > config['input_max_chars']:
                 print(f"   Input: {len(text)} chars → Using smart chunking")
@@ -380,3 +384,4 @@ class Summarizer:
     def get_performance_stats(self) -> Dict:
         """Get performance statistics"""
         return self._stats.copy()
+    

@@ -20,7 +20,8 @@ import time
 from datetime import timedelta
 
 # ============================================================================
-# SETUP CUDA TỐI ƯU CHO RTX 3050 Ti LAPTOP
+# SETUP CUDA TỐI ƯU CHO RTX 3050 Ti LAPTOP WINDOWS 11
+# By HHL Team
 # ============================================================================
 os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
@@ -52,13 +53,6 @@ warnings.filterwarnings('ignore')
 from transformers.utils import logging as hf_logging
 hf_logging.set_verbosity_error()
 
-
-# ============================================================================
-# CUSTOM CALLBACK ĐỂ KIỂM SOÁT NaN
-# ============================================================================
-# ============================================================================
-# CUSTOM CALLBACK ĐỂ KIỂM SOÁT NaN VÀ THEO DÕI TIẾN TRÌNH
-# ============================================================================
 class ProgressAndNaNCallback(TrainerCallback):
     """Callback để theo dõi tiến độ chi tiết và phát hiện/xử lý NaN"""
     
@@ -257,12 +251,6 @@ class AcademicFineTuner:
     """Class quản lý việc fine-tune model tóm tắt văn bản học thuật"""
     
     def __init__(self, base_model_path: Optional[str] = None):
-        """
-        Khởi tạo fine-tuner
-        
-        Args:
-            base_model_path: Đường dẫn đến base model. Nếu None, sẽ hỏi người dùng chọn
-        """
         self.fine_tuned_model_path = "./models/hhlai_academic_textsum"
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         
@@ -278,7 +266,6 @@ class AcademicFineTuner:
         self._load_base_model()
     
     def _select_base_model(self) -> str:
-        """Chọn base model từ thư mục ./models/"""
         models_dir = "./models"
         available_models = [
             d for d in os.listdir(models_dir)
@@ -304,7 +291,6 @@ class AcademicFineTuner:
             print("❌ Lựa chọn không hợp lệ")
     
     def _load_base_model(self):
-        """Load base model"""
         logger.info(f"📂 Đang tải base model từ: {self.base_model_path}")
         
         try:
@@ -335,9 +321,7 @@ class AcademicFineTuner:
         gradient_accumulation_steps: int = 2,
     ):
         """
-        Fine-tune model
-        
-        Args:
+        Giải thích thông số Fine-tune model
             data_file: Đường dẫn file dữ liệu .jsonl
             epochs: Số epoch huấn luyện
             batch_size: Batch size
@@ -346,7 +330,7 @@ class AcademicFineTuner:
             max_target_length: Độ dài tối đa target
             warmup_steps: Số warmup steps
             weight_decay: Weight decay
-            gradient_accumulation_steps: Gradient accumulation steps
+            gradient_accumulation_steps: Số bước tích lũy gradient (tăng hiệu quả batch size)
         """
         logger.info("🚀 Bắt đầu fine-tune")
         
@@ -409,7 +393,7 @@ class AcademicFineTuner:
             eval_strategy="no",
             # Memory optimization
             gradient_checkpointing=True,
-            # Data loading - WINDOWS KHÔNG HỖ TRỢ NUM_WORKERS
+            # Data loading (WINDOWS KHÔNG HỖ TRỢ NUM_WORKERS)
             dataloader_num_workers=0,  # BẮT BUỘC = 0 cho Windows
             dataloader_pin_memory=False,  # Tắt trên Windows
             # Report
@@ -468,6 +452,7 @@ class AcademicFineTuner:
 
 
 def main():
+    # Phân tích đối số CLI
     parser = argparse.ArgumentParser(
         description="Fine-tune model tóm tắt văn bản học thuật"
     )

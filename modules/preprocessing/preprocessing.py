@@ -1,7 +1,8 @@
 """
-Text preprocessing module
+@ file modules/preprocessing/preprocessing.py
+@ Copyright (C) 2025 by Gia-Huy Do & HHL Team
 """
-import re
+import re       # Regular expressions for text processing
 from typing import List
 from modules.module_configs import ModuleConfigs
 
@@ -13,15 +14,7 @@ class Preprocessing:
         self.config = config or ModuleConfigs()
     
     def normalize_text(self, text: str) -> str:
-        """
-        Normalize text by removing extra whitespace and special characters
-        
-        Args:
-            text: Input text to normalize
-            
-        Returns:
-            Normalized text
-        """
+        """ Normalize text by removing extra whitespace and special characters """
         try:
             # Remove extra whitespace
             text = ' '.join(text.split())
@@ -41,11 +34,7 @@ class Preprocessing:
         """
         Split text into sentences
         
-        Args:
-            text: Input text
-            
-        Returns:
-            List of sentences
+        Thuat toan: Su dung bieu thuc chinh quy de tach cau
         """
         try:
             # Split by common sentence endings
@@ -59,11 +48,7 @@ class Preprocessing:
         """
         Tokenize text into words
         
-        Args:
-            text: Input text
-            
-        Returns:
-            List of tokens
+        Thuat toan: Su dung bieu thuc chinh quy de tach tu
         """
         try:
             # Simple tokenization by splitting on whitespace and punctuation
@@ -73,15 +58,7 @@ class Preprocessing:
             raise Exception(f"Tokenization failed: {str(e)}")
     
     def process(self, text: str) -> str:
-        """
-        Process text through all preprocessing steps
-        
-        Args:
-            text: Input text
-            
-        Returns:
-            Processed text
-        """
+        """ Process text through all preprocessing steps        """
         try:
             # Step 1: Normalize text
             text = self.normalize_text(text)
@@ -98,3 +75,4 @@ class Preprocessing:
             return text
         except Exception as e:
             raise Exception(f"Text processing failed: {str(e)}")
+        
