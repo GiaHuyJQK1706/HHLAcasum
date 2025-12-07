@@ -1,6 +1,7 @@
 """
 @ file modules/preprocessing/preprocessing.py
 @ Copyright (C) 2025 by Gia-Huy Do & HHL Team
+@ v0,96 change: Optimized preprocessing methods and added error handling, optimized normalize_text method
 """
 import re       # Regular expressions for text processing
 from typing import List
@@ -22,10 +23,14 @@ class Preprocessing:
             # Remove multiple punctuation
             text = re.sub(r'([.!?]){2,}', r'\1', text)
             
-            # Normalize quotes
-            text = text.replace('"', '"').replace('"', '"')
-            text = text.replace(''', "'").replace(''', "'")
-            
+            # Normalize quotes and escape characters
+            text = (text
+                    .replace("\\", "\\\\")
+                    .replace("“", '"').replace("”", '"')
+                    .replace("‘", "'").replace("’", "'")
+                    .replace('"', '\\"')
+                    .replace("'", "\\'"))
+
             return text.strip()
         except Exception as e:
             raise Exception(f"Text normalization failed: {str(e)}")

@@ -31,10 +31,10 @@ class AppUI:
     def _create_interface(self):
         """Create the Gradio interface"""
 
-        with gr.Blocks(title="HHL Acusum", theme=gr.themes.Soft()) as interface:
+        with gr.Blocks(title="HHL Acasum", theme=gr.themes.Soft()) as interface:
             gr.Markdown(
                 """
-            # 📚 HHL Acusum
+            # 📚 HHL Acasum
 
             A powerful application for summarizing academic texts using state-of-the-art Transformer models.
             """
@@ -58,7 +58,7 @@ class AppUI:
 
                 with gr.Row():
                     with gr.Column():
-                        gr.Markdown("**Option A: Upload File**")
+                        gr.Markdown("**Upload File**")
                         file_input = gr.File(
                             label="Choose file (.txt, .pdf, .docx)",
                             file_types=[".txt", ".pdf", ".docx"]
@@ -66,7 +66,7 @@ class AppUI:
                         import_file_btn = gr.Button("📂 Import from File", variant="primary")
 
                     with gr.Column():
-                        gr.Markdown("**Option B: Direct Input**")
+                        gr.Markdown("**or Direct Input**")
                         text_input = gr.Textbox(
                             label="Enter text directly",
                             lines=8,
@@ -111,11 +111,11 @@ class AppUI:
                     clear_btn = gr.Button("🔄 Clear Session", scale=1)
 
                 result_display = gr.Textbox(
-                    label="📝 Generated Summary (Full Content)",
+                    label="📝 Result",
                     lines=10,
-                    max_lines=7500,
+                    max_lines=25,
                     interactive=False,
-                    placeholder="Summary will appear here...",
+                    placeholder="Result will appear here...",
                     show_copy_button=True,
                     elem_classes="full-textbox"  # Target CSS
                 )
@@ -173,13 +173,13 @@ class AppUI:
                     search_query = gr.Textbox(
                         label="Search summaries",
                         placeholder="Enter keyword to search...",
-                        scale=3
+                        scale=4
                     )
-                    search_btn = gr.Button("🔍 Search", scale=1)
-                    stats_btn = gr.Button("📊 Statistics", scale=1)
-
+                    
                 with gr.Row():
-                    refresh_history_btn = gr.Button("🔄 Refresh History", variant="primary", scale=2)
+                    search_btn = gr.Button("🔍 Search", variant="primary", scale=1)
+                    stats_btn = gr.Button("📊 Statistics", scale=1)
+                    refresh_history_btn = gr.Button("🔄 Refresh History", scale=1) 
                     clear_history_btn = gr.Button("🗑️ Clear All History", scale=1)
 
                 # History display uses HTML string (safe and simple)
@@ -262,7 +262,7 @@ class AppUI:
             <div style="border:1px solid #e1e8f0;border-radius:8px;padding:12px;background:#fff;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
                     <div>
-                        <h4 style="margin:0 0 4px 0;">📌 Record #{i}</h4>
+                        <h4 style="margin:0 0 4px 0;">Record #{i}</h4>
                         <div style="font-size:13px;color:#555;">
                             <span><strong>Date:</strong> {created_at}</span> &nbsp;|&nbsp;
                             <span><strong>Type:</strong> {summary_length}</span>
