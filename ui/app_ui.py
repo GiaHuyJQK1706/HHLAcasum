@@ -1,6 +1,7 @@
 """
 @ file ui/app_ui.py
 @ Copyright (C) 2025 by Gia-Huy Do & HHL Team
+@ v0.97: Add HHL Theme
 """
 import gradio as gr
 from ui.event_handles import EventHandles
@@ -30,8 +31,14 @@ class AppUI:
 
     def _create_interface(self):
         """Create the Gradio interface"""
+        HHL_theme = gr.themes.Soft(
+            primary_hue=gr.themes.colors.emerald,
+            secondary_hue=gr.themes.colors.emerald,
+            neutral_hue=gr.themes.colors.slate,
+            radius_size=gr.themes.sizes.radius_md
+        )
 
-        with gr.Blocks(title="HHL Acasum", theme=gr.themes.Soft()) as interface:
+        with gr.Blocks(title="HHL Acasum", theme=HHL_theme) as interface:
             gr.Markdown(
                 """
             # 📚 HHL Acasum

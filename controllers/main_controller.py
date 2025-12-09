@@ -27,12 +27,7 @@ class MainController:
         self.user_id = self.data_controller.initialize_user()
     
     def initialize_system(self) -> Dict:
-        """
-        Initialize the system and load models
-        
-        Returns:
-            Initialization status
-        """
+        """ Initialize the system and load models """
         try:
             if self.model_ready:
                 return {
@@ -63,15 +58,7 @@ class MainController:
             }
     
     def import_text_from_file(self, filepath: str) -> Dict:
-        """
-        Import text from file (UC01)
-        
-        Args:
-            filepath: Path to the file
-            
-        Returns:
-            Status and extracted text
-        """
+        """ Import text from file (UC01) """
         try:
             # Extract text from file
             text = self.modules_controller.validate_and_extract_file(filepath)
@@ -94,15 +81,7 @@ class MainController:
             }
     
     def import_text_direct(self, text: str) -> Dict:
-        """
-        Import text directly from input (UC01)
-        
-        Args:
-            text: Input text
-            
-        Returns:
-            Status and validation result
-        """
+        """ Import text directly from input (UC01) """
         try:
             # Validate input
             validation = self.modules_controller.validate_input_text(text)
