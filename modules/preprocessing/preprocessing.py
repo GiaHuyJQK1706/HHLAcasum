@@ -1,21 +1,23 @@
 """
 @ file modules/preprocessing/preprocessing.py
 @ Copyright (C) 2025 by Gia-Huy Do & HHL Team
-@ v0,96 change: Optimized preprocessing methods and added error handling, optimized normalize_text method
+@ v0.98: Enhanced with section detection support
 """
-import re       # Regular expressions for text processing
+import re
 from typing import List
 from modules.module_configs import ModuleConfigs
+from modules.preprocessing.section_detector import SectionDetector
 
 
 class Preprocessing:
-    """Handles text preprocessing operations"""
+    """Enhanced text preprocessing with structure awareness"""
     
     def __init__(self, config: ModuleConfigs = None):
         self.config = config or ModuleConfigs()
+        self.section_detector = SectionDetector()
     
     def normalize_text(self, text: str) -> str:
-        """ Normalize text by removing extra whitespace and special characters """
+        """Normalize text by removing extra whitespace and special characters"""
         try:
             # Remove extra whitespace
             text = ' '.join(text.split())
@@ -26,8 +28,8 @@ class Preprocessing:
             # Normalize quotes and escape characters
             text = (text
                     .replace("\\", "\\\\")
-                    .replace("“", '"').replace("”", '"')
-                    .replace("‘", "'").replace("’", "'")
+                    .replace(""", '"').replace(""", '"')
+                    .replace("'", "'").replace("'", "'")
                     .replace('"', '\\"')
                     .replace("'", "\\'"))
 
@@ -36,13 +38,8 @@ class Preprocessing:
             raise Exception(f"Text normalization failed: {str(e)}")
     
     def split_sentences(self, text: str) -> List[str]:
-        """
-        Split text into sentences
-        
-        Thuat toan: Su dung bieu thuc chinh quy de tach cau
-        """
+        """Split text into sentences"""
         try:
-            # Split by common sentence endings
             sentences = re.split(r'(?<=[.!?])\s+', text)
             sentences = [s.strip() for s in sentences if s.strip()]
             return sentences
@@ -50,20 +47,22 @@ class Preprocessing:
             raise Exception(f"Sentence splitting failed: {str(e)}")
     
     def tokenize(self, text: str) -> List[str]:
-        """
-        Tokenize text into words
-        
-        Thuat toan: Su dung bieu thuc chinh quy de tach tu
-        """
+        """Tokenize text into words"""
         try:
-            # Simple tokenization by splitting on whitespace and punctuation
             tokens = re.findall(r'\b\w+\b|[.!?]', text.lower())
             return tokens
         except Exception as e:
             raise Exception(f"Tokenization failed: {str(e)}")
     
+    def detect_sections(self, text: str):
+        """Detect document sections (wrapper for SectionDetector)"""
+        try:
+            return self.section_detector.detect_sections(text)
+        except Exception as e:
+            raise Exception(f"Section detection failed: {str(e)}")
+    
     def process(self, text: str) -> str:
-        """ Process text through all preprocessing steps        """
+        """Process text through all preprocessing steps"""
         try:
             # Step 1: Normalize text
             text = self.normalize_text(text)

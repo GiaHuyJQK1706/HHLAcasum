@@ -1,22 +1,21 @@
 """
 @ file modules/summarizer/summarizer.py
 @ Copyright (C) 2025 by Gia-Huy Do & HHL Team
-@ v0,95 change: Longer + More accurate summaries
+@ v0.99: Natural flowing summaries with complete sentences
 """
 import torch
 import re
 import time
 from pathlib import Path
-from typing import Optional, Dict, List, Tuple
-from transformers import (
-    AutoTokenizer,
-    AutoModelForSeq2SeqLM
-)
+from typing import Optional, Dict, List
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 from modules.module_configs import ModuleConfigs
+from modules.preprocessing.section_detector import SectionDetector, Section
+from modules.summarizer.summary_validator import SummaryValidator
 
 
 class Summarizer:
-    """Final optimized T5 summarizer: Longer outputs + Better accuracy"""
+    """Ultimate T5 summarizer with natural flowing output"""
     
     def __init__(self, config: ModuleConfigs = None):
         self.config = config or ModuleConfigs()
@@ -24,23 +23,24 @@ class Summarizer:
         self.tokenizer = None
         self.device = self._get_device()
         
-        # Performance: Cache
+        self.section_detector = SectionDetector()
+        self.validator = SummaryValidator()
+        
         self._token_cache = {} if self.config.ENABLE_CACHING else None
         self._stats = {
             "total_time": 0,
             "tokenization_time": 0,
             "generation_time": 0,
-            "postprocess_time": 0
+            "postprocess_time": 0,
+            "validation_time": 0
         }
     
     def _get_device(self) -> str:
-        """Get available device (cuda or cpu)"""
         if self.config.DEVICE == "cuda" and torch.cuda.is_available():
             return "cuda"
         return "cpu"
     
     def _get_model_path(self) -> str:
-        """Get the model path (local or from Hugging Face)"""
         if self.config.USE_LOCAL_MODEL:
             local_path = Path(self.config.MODEL_LOCAL_PATH)
             if local_path.exists() and (local_path / "config.json").exists():
@@ -51,16 +51,12 @@ class Summarizer:
         return self.config.MODEL_NAME
     
     def load_model(self) -> None:
-        """Load the pretrained model and tokenizer"""
         try:
             model_path = self._get_model_path()
             print(f"Loading T5 model from: {model_path}")
             print(f"Using device: {self.device}")
             
-            # Load tokenizer
             self.tokenizer = AutoTokenizer.from_pretrained(model_path)
-            
-            # Load model
             self.model = AutoModelForSeq2SeqLM.from_pretrained(
                 model_path,
                 torch_dtype=torch.float32 if self.device == "cpu" else torch.float16,
@@ -71,16 +67,11 @@ class Summarizer:
             self.model.eval()
             
             print("✅ Model loaded successfully!")
-            print(f"   Optimizations: Chunking={'✓' if self.config.USE_SMART_CHUNKING else '✗'}, "
-                  f"Beams={self.config.SHORT_NUM_BEAMS}/{self.config.LONG_NUM_BEAMS}, "
-                  f"Caching={'✓' if self.config.ENABLE_CACHING else '✗'}")
-            print(f"   Target lengths: Short={self.config.SUMMARY_MIN_LENGTH_SHORT}-{self.config.SUMMARY_MAX_LENGTH_SHORT}, "
-                  f"Long={self.config.SUMMARY_MIN_LENGTH_LONG}-{self.config.SUMMARY_MAX_LENGTH_LONG}")
+            print(f"   Mode: Natural Flow Generation")
         except Exception as e:
             raise Exception(f"Failed to load model: {str(e)}")
     
     def unload_model(self) -> None:
-        """Unload model from memory"""
         try:
             if self.model is not None:
                 del self.model
@@ -95,98 +86,538 @@ class Summarizer:
         except Exception as e:
             print(f"Warning: Failed to unload model: {str(e)}")
     
-    def _split_into_chunks(self, text: str, chunk_size: int, overlap: int) -> List[str]:
-        """
-        Chia text thành chunks với overlap - IMPROVED
-        """
-        if len(text) <= chunk_size:
+    # ================================================================
+    # MAIN: NATURAL FLOW SUMMARIZATION
+    # ================================================================
+    
+    def summarize(self, text: str, summary_length: str = "short") -> str:
+        """Generate natural flowing summary without section numbers"""
+        try:
+            if self.model is None or self.tokenizer is None:
+                raise Exception("Model not loaded. Call load_model() first.")
+            
+            total_start = time.time()
+            config = self.config.get_summary_config(summary_length)
+            
+            print(f"\n📝 Generating {summary_length} natural flow summary...")
+            print(f"   Target: {config['min_length']}-{config['max_length']} tokens")
+            
+            # ENHANCED STRATEGY: Extractive + Abstractive Hybrid
+            if self.config.USE_STRUCTURE_AWARE and len(text) > 3000:
+                sections = self.section_detector.detect_sections(text)
+                structure = self.section_detector.get_document_structure(sections)
+                
+                print(f"   Document: {structure['total_sections']} sections")
+                
+                if structure['is_well_structured'] and len(sections) > 1:
+                    print(f"   Strategy: Hierarchical with Natural Flow")
+                    summary = self._hierarchical_natural_flow(sections, config, text)
+                else:
+                    print(f"   Strategy: Enhanced Extractive-Abstractive")
+                    summary = self._extractive_abstractive_hybrid(text, config)
+            else:
+                print(f"   Strategy: Standard with Flow Enhancement")
+                summary = self._standard_with_flow(text, config)
+            
+            # CRITICAL: Natural Flow Post-Processing
+            summary = self._ensure_natural_flow(summary)
+            
+            # Quality validation
+            if self.config.ENABLE_QUALITY_VALIDATION:
+                summary = self._validate_and_fix_natural(summary, config)
+            
+            # Final polish
+            summary = self._final_polish(summary)
+            
+            # Stats
+            total_time = time.time() - total_start
+            self._print_stats(summary, total_time, config)
+            self._reset_stats()
+            
+            return summary
+        
+        except Exception as e:
+            raise Exception(f"Summarization failed: {str(e)}")
+    
+    # ================================================================
+    # STRATEGY 1: HIERARCHICAL WITH NATURAL FLOW
+    # ================================================================
+    
+    def _hierarchical_natural_flow(self, sections: List[Section], 
+                                   config: Dict, original_text: str) -> str:
+        """Hierarchical summarization producing natural flowing text"""
+        
+        print(f"   Phase 1/3: Extracting key information per section...")
+        
+        # Step 1: Extract key information from each section
+        section_extracts = []
+        for i, section in enumerate(sections, 1):
+            if len(section.content) < 50:
+                continue
+            
+            print(f"      [{i}/{len(sections)}] {section.title}")
+            
+            # Extract key sentences (not just summarize)
+            key_sentences = self._extract_key_info_from_section(
+                section.content, 
+                section.section_type,
+                max_sentences=5 if config['summary_type'] == 'long' else 3
+            )
+            
+            section_extracts.append({
+                'title': section.title,
+                'type': section.section_type,
+                'key_info': ' '.join(key_sentences),
+                'original_length': len(section.content)
+            })
+        
+        print(f"   Phase 2/3: Combining into coherent narrative...")
+        
+        # Step 2: Combine extracts into a flowing narrative
+        combined_narrative = self._combine_to_narrative(section_extracts)
+        
+        print(f"   Phase 3/3: Final abstractive polish...")
+        
+        # Step 3: Abstractive refinement for natural flow
+        polish_config = config.copy()
+        polish_config['prefix'] = """Rewrite this as a single, flowing paragraph without section numbers or bullet points. 
+Ensure smooth transitions between ideas and complete sentences throughout. 
+Preserve all important technical details and information.
+Text: """
+        polish_config['max_length'] = config['max_length'] + 50  # Allow more space
+        
+        final_summary = self._generate_summary_single(combined_narrative, polish_config)
+        
+        return final_summary
+    
+    def _extract_key_info_from_section(self, section_text: str, 
+                                       section_type: str, 
+                                       max_sentences: int = 5) -> List[str]:
+        """Extract most informative sentences from a section"""
+        
+        sentences = re.split(r'(?<=[.!?])\s+', section_text)
+        sentences = [s.strip() for s in sentences if len(s.strip()) > 20]
+        
+        if len(sentences) <= max_sentences:
+            return sentences
+        
+        # Score sentences by importance
+        from collections import Counter
+        
+        # Calculate word frequencies
+        all_words = []
+        for sent in sentences:
+            words = [w.lower() for w in re.findall(r'\b\w+\b', sent)]
+            all_words.extend(words)
+        
+        word_freq = Counter(all_words)
+        
+        # Remove very common words (stopwords)
+        stopwords = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 
+                     'of', 'with', 'by', 'from', 'as', 'is', 'are', 'was', 'were', 'been',
+                     'be', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'should',
+                     'can', 'could', 'may', 'might', 'must', 'that', 'this', 'these', 'those'}
+        
+        # Score sentences
+        scored_sentences = []
+        for idx, sentence in enumerate(sentences):
+            words = [w.lower() for w in re.findall(r'\b\w+\b', sentence) if w.lower() not in stopwords]
+            
+            if not words:
+                continue
+            
+            # TF score
+            tf_score = sum(word_freq[w] for w in words) / len(words)
+            
+            # Position bonus (first and last sentences often important)
+            position_boost = 1.0
+            if idx == 0:
+                position_boost = 1.3  # First sentence
+            elif idx == len(sentences) - 1 and section_type == 'conclusion':
+                position_boost = 1.2  # Last in conclusion
+            
+            # Technical content bonus (numbers, technical terms)
+            tech_boost = 1.0
+            if re.search(r'\d+', sentence):
+                tech_boost += 0.2
+            if any(term in sentence.lower() for term in ['system', 'method', 'algorithm', 'performance', 'model']):
+                tech_boost += 0.1
+            
+            final_score = tf_score * position_boost * tech_boost
+            scored_sentences.append((final_score, sentence, idx))
+        
+        # Get top sentences, preserve order
+        top_sentences = sorted(scored_sentences, reverse=True)[:max_sentences]
+        top_sentences.sort(key=lambda x: x[2])  # Sort by original position
+        
+        return [s[1] for s in top_sentences]
+    
+    def _combine_to_narrative(self, section_extracts: List[Dict]) -> str:
+        """Combine section extracts into a flowing narrative"""
+        
+        # Transition phrases for natural flow
+        transitions = {
+            'introduction': '',  # No transition needed at start
+            'content': 'Furthermore, ',
+            'methods': 'In terms of methodology, ',
+            'results': 'The findings indicate that ',
+            'conclusion': 'Ultimately, '
+        }
+        
+        narrative = ""
+        prev_type = None
+        
+        for i, extract in enumerate(section_extracts):
+            section_type = extract['type']
+            content = extract['key_info']
+            
+            # Add transition if needed
+            if i > 0 and section_type != prev_type:
+                # Add subtle transition
+                if section_type == 'conclusion':
+                    narrative += " "
+                else:
+                    narrative += " Additionally, "
+            else:
+                narrative += " "
+            
+            # Add content (remove any existing section numbers)
+            content_clean = re.sub(r'^\d+\.?\s*', '', content)
+            narrative += content_clean
+            
+            prev_type = section_type
+        
+        return narrative.strip()
+    
+    # ================================================================
+    # STRATEGY 2: EXTRACTIVE-ABSTRACTIVE HYBRID
+    # ================================================================
+    
+    def _extractive_abstractive_hybrid(self, text: str, config: Dict) -> str:
+        """Hybrid approach: extract key info, then generate natural summary"""
+        
+        print(f"   Phase 1/2: Extracting key sentences...")
+        
+        # Extract more sentences for long summaries
+        num_sentences = 15 if config['summary_type'] == 'long' else 10
+        key_sentences = self.section_detector.extract_key_sentences(text, top_k=num_sentences)
+        
+        extracted_text = ' '.join(key_sentences)
+        print(f"      Extracted {len(key_sentences)} key sentences")
+        
+        print(f"   Phase 2/2: Generating natural flowing summary...")
+        
+        # Generate natural summary from extracted content
+        gen_config = config.copy()
+        gen_config['prefix'] = """Create a single, flowing paragraph that naturally describes this content. 
+No section numbers, no bullet points, just smooth narrative prose with complete sentences.
+Preserve all important information and technical details.
+Text: """
+        
+        summary = self._generate_summary_single(extracted_text, gen_config)
+        
+        return summary
+    
+    # ================================================================
+    # STRATEGY 3: STANDARD WITH FLOW ENHANCEMENT
+    # ================================================================
+    
+    def _standard_with_flow(self, text: str, config: Dict) -> str:
+        """Standard summarization with flow enhancement"""
+        
+        if len(text) > config['input_max_chars']:
+            print(f"   Input: {len(text)} chars → Smart chunking")
+            
+            chunks = self._split_into_smart_chunks(text, config['input_max_chars'])
+            print(f"   Chunks: {len(chunks)}")
+            
+            # Summarize each chunk
+            chunk_summaries = []
+            for i, chunk in enumerate(chunks, 1):
+                print(f"      Chunk {i}/{len(chunks)}")
+                
+                chunk_config = config.copy()
+                chunk_config['prefix'] = "Write a flowing paragraph summarizing: "
+                
+                summary = self._generate_summary_single(chunk, chunk_config)
+                chunk_summaries.append(summary)
+            
+            # Merge into natural flow
+            if len(chunk_summaries) > 1:
+                merged = self._merge_to_natural_flow(chunk_summaries, config)
+            else:
+                merged = chunk_summaries[0]
+            
+            return merged
+        else:
+            print(f"   Input: {len(text)} chars")
+            
+            config['prefix'] = """Generate a natural, flowing summary as a single cohesive paragraph. 
+No section numbers or lists, just smooth narrative prose.
+Text: """
+            
+            return self._generate_summary_single(text, config)
+    
+    def _split_into_smart_chunks(self, text: str, max_size: int) -> List[str]:
+        """Smart chunking preserving paragraph boundaries"""
+        
+        if len(text) <= max_size:
             return [text]
         
-        chunks = []
-        start = 0
+        # Try to split by paragraphs first
+        paragraphs = text.split('\n\n')
         
-        while start < len(text):
-            end = start + chunk_size
+        chunks = []
+        current_chunk = ""
+        
+        for para in paragraphs:
+            para = para.strip()
+            if not para:
+                continue
             
-            # Nếu không phải chunk cuối, tìm sentence boundary
-            if end < len(text):
-                # Tìm dấu câu gần nhất trong 150 chars cuối (tăng từ 100)
-                search_start = max(end - 150, start)
-                last_period = max(
-                    text.rfind('.', search_start, end),
-                    text.rfind('!', search_start, end),
-                    text.rfind('?', search_start, end)
-                )
-                
-                if last_period > start:
-                    end = last_period + 1
-            
-            chunk = text[start:end].strip()
-            if chunk:
-                chunks.append(chunk)
-            
-            # Tính start mới với overlap
-            start = end - overlap if end < len(text) else end
-            
-            # Giới hạn số chunks
-            if len(chunks) >= self.config.MAX_CHUNKS:
-                # Thêm phần còn lại vào chunk cuối
-                if start < len(text):
-                    remaining = text[start:].strip()
-                    if remaining:
-                        chunks[-1] = chunks[-1] + " " + remaining
-                break
+            # If adding this paragraph exceeds limit
+            if len(current_chunk) + len(para) > max_size:
+                if current_chunk:
+                    chunks.append(current_chunk.strip())
+                    current_chunk = para
+                else:
+                    # Single paragraph too long, split by sentences
+                    sentences = re.split(r'(?<=[.!?])\s+', para)
+                    for sent in sentences:
+                        if len(current_chunk) + len(sent) > max_size:
+                            if current_chunk:
+                                chunks.append(current_chunk.strip())
+                            current_chunk = sent
+                        else:
+                            current_chunk += " " + sent
+            else:
+                current_chunk += " " + para
+        
+        if current_chunk:
+            chunks.append(current_chunk.strip())
         
         return chunks
     
-    def _merge_chunk_summaries(self, chunk_summaries: List[str]) -> str:
-        """
-        Merge summaries từ nhiều chunks - IMPROVED
+    def _merge_to_natural_flow(self, summaries: List[str], config: Dict) -> str:
+        """Merge multiple summaries into natural flowing text"""
         
-        Improvements:
-        - Tốt hơn trong việc loại bỏ duplicates
-        - Giữ coherence giữa các chunks
-        """
-        if len(chunk_summaries) == 1:
-            return chunk_summaries[0]
+        print(f"   Merging {len(summaries)} summaries into natural flow...")
         
-        # Merge bằng cách nối lại
-        merged = " ".join(chunk_summaries)
+        # Remove duplicates
+        unique_summaries = []
+        seen_content = set()
         
-        # Clean up duplicates và redundancy
-        sentences = re.split(r'(?<=[.!?])\s+', merged)
-        unique_sentences = []
-        seen = set()
+        for summary in summaries:
+            # Normalize for comparison
+            normalized = ' '.join(summary.lower().split()[:10])
+            if normalized not in seen_content:
+                unique_summaries.append(summary)
+                seen_content.add(normalized)
         
-        for sent in sentences:
-            # Normalize để check duplicate
-            normalized = ' '.join(sent.lower().split())
+        # Combine with transitions
+        combined = ""
+        for i, summary in enumerate(unique_summaries):
+            # Remove any section numbers
+            summary = re.sub(r'^\d+\.?\s*', '', summary)
+            summary = re.sub(r'\n\d+\.?\s*', ' ', summary)
             
-            # Chỉ thêm nếu chưa thấy và đủ dài
-            if normalized not in seen and len(normalized) > 15:  # Giảm từ 20 → 15
-                unique_sentences.append(sent)
-                seen.add(normalized)
+            if i == 0:
+                combined = summary
+            else:
+                # Add subtle transition
+                combined += " Additionally, " + summary[0].lower() + summary[1:]
         
-        return ' '.join(unique_sentences)
+        # Final polish pass
+        polish_config = config.copy()
+        polish_config['prefix'] = """Rewrite this as one smooth, flowing paragraph. 
+Remove any redundancy, ensure logical flow, and maintain complete sentences.
+Text: """
+        polish_config['min_length'] = config['min_length']
+        polish_config['max_length'] = config['max_length'] + 30
+        
+        polished = self._generate_summary_single(combined, polish_config)
+        
+        return polished
+    
+    # ================================================================
+    # NATURAL FLOW POST-PROCESSING
+    # ================================================================
+    
+    def _ensure_natural_flow(self, summary: str) -> str:
+        """Ensure summary has natural flow without section markers"""
+        
+        print(f"   Ensuring natural flow...")
+        
+        # Remove ALL section numbers and markers
+        summary = re.sub(r'^\d+\.?\s*', '', summary)  # At start
+        summary = re.sub(r'\n\d+\.?\s*', ' ', summary)  # At line breaks
+        summary = re.sub(r'\s+\d+\.?\s+', ' ', summary)  # In middle
+        summary = re.sub(r'\b\d+\.\d+\b', '', summary)  # Subsection numbers like 1.1
+        
+        # Remove bullet points and list markers
+        summary = re.sub(r'[-•*]\s+', '', summary)
+        
+        # Fix spacing
+        summary = re.sub(r'\s+', ' ', summary)
+        summary = re.sub(r'\s+([.,!?;:])', r'\1', summary)
+        
+        # Ensure proper sentence spacing
+        summary = re.sub(r'([.!?])([A-Z])', r'\1 \2', summary)
+        
+        # Remove section headers that might remain
+        lines = summary.split('\n')
+        cleaned_lines = []
+        for line in lines:
+            line = line.strip()
+            # Skip lines that look like headers (short, capitalized)
+            if len(line) < 100 and line and line[0].isupper() and ':' in line:
+                # This might be a header, skip it
+                continue
+            if line:
+                cleaned_lines.append(line)
+        
+        summary = ' '.join(cleaned_lines)
+        
+        return summary.strip()
+    
+    def _validate_and_fix_natural(self, summary: str, config: Dict) -> str:
+        """Validate and fix for natural flow"""
+        
+        start_time = time.time()
+        
+        expected_min = config['min_length'] // 1.5
+        validation = self.validator.validate_quality(summary, int(expected_min))
+        
+        self._stats["validation_time"] = time.time() - start_time
+        
+        print(f"   Quality: score={validation['score']:.2f}")
+        
+        if validation['issues']:
+            print(f"      Auto-fixing {len(validation['issues'])} issues...")
+            summary = self.validator.fix_common_issues(summary)
+            
+            # Additional fixes for natural flow
+            summary = self._ensure_natural_flow(summary)
+        
+        return summary
+    
+    def _final_polish(self, summary: str) -> str:
+        """Final polishing for perfect output"""
+        
+        # Ensure complete sentence at end
+        summary = summary.strip()
+        
+        # Find last proper sentence ending
+        if summary and summary[-1] not in '.!?':
+            last_period = max(
+                summary.rfind('.'),
+                summary.rfind('!'),
+                summary.rfind('?')
+            )
+            
+            # Only cut if sentence ending is near the end (within last 35%)
+            if last_period > len(summary) * 0.65:
+                summary = summary[:last_period + 1].strip()
+            else:
+                # Add period if no good ending found
+                summary += '.'
+        
+        # Remove any remaining artifacts
+        summary = re.sub(r'\s+', ' ', summary)
+        summary = re.sub(r'\s+([.,!?;:])', r'\1', summary)
+        
+        # Spell check
+        if self.config.ENABLE_SPELL_CHECK:
+            summary = self._fast_spell_check(summary)
+        
+        return summary.strip()
+    
+    # ================================================================
+    # GENERATION & UTILITIES
+    # ================================================================
+    
+    def _generate_summary_single(self, text: str, config: Dict) -> str:
+        """Generate summary for single text chunk"""
+        
+        if config.get('prefix'):
+            input_text = config['prefix'] + text
+        else:
+            input_text = text
+        
+        start_time = time.time()
+        inputs = self._tokenize_with_cache(input_text, 512)
+        self._stats["tokenization_time"] += time.time() - start_time
+        
+        start_time = time.time()
+        
+        generation_params = {
+            "input_ids": inputs["input_ids"],
+            "min_length": config['min_length'],
+            "max_length": config['max_length'] + 30,
+            "num_beams": config['num_beams'],
+            "length_penalty": config['length_penalty'],
+            "repetition_penalty": config['repetition_penalty'],
+            "no_repeat_ngram_size": config['no_repeat_ngram_size'],
+            "early_stopping": config['early_stopping']
+        }
+        
+        if 'temperature' in config and config['temperature'] > 0:
+            generation_params['temperature'] = config['temperature']
+        if 'top_p' in config:
+            generation_params['top_p'] = config['top_p']
+        if 'do_sample' in config:
+            generation_params['do_sample'] = config['do_sample']
+        
+        with torch.no_grad():
+            summary_ids = self.model.generate(**generation_params)
+        
+        self._stats["generation_time"] += time.time() - start_time
+        
+        summary = self.tokenizer.batch_decode(
+            summary_ids,
+            skip_special_tokens=True,
+            clean_up_tokenization_spaces=True
+        )[0]
+        
+        return summary
+    
+    def _tokenize_with_cache(self, text: str, max_length: int) -> Dict:
+        if not self._token_cache:
+            return self.tokenizer(
+                text, max_length=max_length,
+                truncation=True, return_tensors="pt"
+            ).to(self.device)
+        
+        cache_key = hash(text[:100])
+        
+        if cache_key in self._token_cache:
+            return self._token_cache[cache_key]
+        
+        inputs = self.tokenizer(
+            text, max_length=max_length,
+            truncation=True, return_tensors="pt"
+        ).to(self.device)
+        
+        if len(self._token_cache) > 50:
+            self._token_cache.pop(next(iter(self._token_cache)))
+        
+        self._token_cache[cache_key] = inputs
+        return inputs
     
     def _fast_spell_check(self, text: str) -> str:
-        """Fast spell check chỉ dùng dictionary"""
-        if not self.config.ENABLE_SPELL_CHECK or not self.config.COMMON_FIXES:
+        if not self.config.COMMON_FIXES:
             return text
         
         words = text.split()
         fixed_words = []
         
         for word in words:
-            # Tách punctuation
             clean_word = word.strip('.,!?;:"\'-')
             punct = word[len(clean_word):] if len(word) > len(clean_word) else ''
             
-            # Check và sửa
             lower_word = clean_word.lower()
             if lower_word in self.config.COMMON_FIXES:
                 fixed = self.config.COMMON_FIXES[lower_word]
-                # Preserve capitalization
                 if clean_word and clean_word[0].isupper():
                     fixed = fixed.capitalize()
                 if clean_word.isupper():
@@ -197,238 +628,19 @@ class Summarizer:
         
         return ' '.join(fixed_words)
     
-    def _ensure_complete_sentence(self, text: str) -> str:
-        """Đảm bảo văn bản kết thúc bằng câu hoàn chỉnh"""
-        if not text or not text.strip():
-            return text
+    def _print_stats(self, summary: str, total_time: float, config: Dict):
+        word_count = len(summary.split())
+        char_count = len(summary)
         
-        text = text.strip()
-        
-        if text[-1] in self.config.ALLOWED_END_PUNCTUATION:
-            return text
-        
-        # Tìm dấu câu cuối cùng
-        last_period = max(
-            text.rfind('.'),
-            text.rfind('!'),
-            text.rfind('?')
-        )
-        
-        # Chỉ cắt nếu dấu câu ở gần cuối (70% → 65% để giữ nhiều hơn)
-        if last_period > len(text) * 0.65:
-            return text[:last_period + 1].strip()
-        
-        return text + "."
+        print(f"✅ Summary completed in {total_time:.2f}s:")
+        print(f"   {char_count} chars | {word_count} words")
+        print(f"   Natural flow: ✓ No section numbers, ✓ Complete sentences")
     
-    def _clean_summary_text(self, text: str) -> str:
-        """Làm sạch văn bản tóm tắt"""
-        text = ' '.join(text.split())
-        text = re.sub(r'([.!?])([A-Z])', r'\1 \2', text)
-        text = re.sub(r'([.!?]){2,}', r'\1', text)
-        text = re.sub(r'\s+([.,!?;:])', r'\1', text)
-        return text.strip()
-    
-    def _tokenize_with_cache(self, text: str, max_length: int) -> Dict:
-        """Tokenize với caching"""
-        if not self._token_cache:
-            return self.tokenizer(
-                text,
-                max_length=max_length,
-                truncation=True,
-                return_tensors="pt"
-            ).to(self.device)
-        
-        cache_key = hash(text[:100])
-        
-        if cache_key in self._token_cache:
-            return self._token_cache[cache_key]
-        
-        inputs = self.tokenizer(
-            text,
-            max_length=max_length,
-            truncation=True,
-            return_tensors="pt"
-        ).to(self.device)
-        
-        if len(self._token_cache) > 50:
-            self._token_cache.pop(next(iter(self._token_cache)))
-        
-        self._token_cache[cache_key] = inputs
-        return inputs
-    
-    def _generate_summary_single(self, text: str, config: Dict) -> str:
-        """
-        Sinh tóm tắt một lần - IMPROVED với temperature và top_p   
-        Improvements (2025/06/12):
-        - Thêm temperature control
-        - Thêm top_p sampling
-        - Thêm do_sample option
-        """
-        # Prefix
-        if config.get('prefix'):
-            input_text = config['prefix'] + text
-        else:
-            input_text = text
-        
-        # Tokenize với caching
-        start_time = time.time()
-        inputs = self._tokenize_with_cache(input_text, 512)
-        self._stats["tokenization_time"] += time.time() - start_time
-        
-        # ============================================================
-        # IMPROVED: Generation với temperature và sampling
-        # ============================================================
-        start_time = time.time()
-        
-        generation_params = {
-            "input_ids": inputs["input_ids"],
-            "min_length": config['min_length'],
-            "max_length": config['max_length'] + 30,  # Buffer nhỏ
-            "num_beams": config['num_beams'],
-            "length_penalty": config['length_penalty'],
-            "repetition_penalty": config['repetition_penalty'],
-            "no_repeat_ngram_size": config['no_repeat_ngram_size'],
-            "early_stopping": config['early_stopping']
-        }
-        
-        # Thêm temperature và top_p nếu có
-        if 'temperature' in config and config['temperature'] > 0:
-            generation_params['temperature'] = config['temperature']
-        
-        if 'top_p' in config:
-            generation_params['top_p'] = config['top_p']
-        
-        # Sampling
-        if config.get('do_sample', False):
-            generation_params['do_sample'] = True
-        else:
-            generation_params['do_sample'] = False
-        
-        with torch.no_grad():
-            summary_ids = self.model.generate(**generation_params)
-        
-        self._stats["generation_time"] += time.time() - start_time
-        
-        # Decode
-        summary = self.tokenizer.batch_decode(
-            summary_ids,
-            skip_special_tokens=True,
-            clean_up_tokenization_spaces=True
-        )[0]
-        
-        return summary
-    
-    def _post_process_summary(self, summary: str) -> str:
-        """Post-processing nhanh"""
-        start_time = time.time()
-        
-        # 1. Clean
-        summary = self._clean_summary_text(summary)
-        
-        # 2. Fast spell check
-        summary = self._fast_spell_check(summary)
-        
-        # 3. Complete sentence
-        if self.config.ENSURE_COMPLETE_SENTENCES:
-            summary = self._ensure_complete_sentence(summary)
-        
-        self._stats["postprocess_time"] += time.time() - start_time
-        
-        return summary
-    
-    def summarize(self, text: str, summary_length: str = "short") -> str:
-        """Generate summary for the given text"""
-        try:
-            if self.model is None or self.tokenizer is None:
-                raise Exception("Model not loaded. Call load_model() first.")
-            
-            total_start = time.time()
-            
-            # Lấy cấu hình
-            config = self.config.get_summary_config(summary_length)
-            
-            print(f"\n📝 Generating {summary_length} summary (Final Optimized)...")
-            print(f"   Target: {config['min_length']}-{config['max_length']} tokens " +
-                  f"(~{config['min_length']//1.3:.0f}-{config['max_length']//1.3:.0f} words)")
-            print(f"   Beams: {config['num_beams']}, Penalty: {config['length_penalty']}, " +
-                  f"Temp: {config.get('temperature', 'N/A')}")
-            
-            # ============================================================
-            # SMART CHUNKING: Xử lý văn bản dài (IMPROVED)
-            # ============================================================
-            if config.get('use_chunking') and len(text) > config['input_max_chars']:
-                print(f"   Input: {len(text)} chars → Using improved chunking")
-                
-                # Chia thành chunks với params cải tiến
-                chunks = self._split_into_chunks(
-                    text,
-                    self.config.CHUNK_SIZE,
-                    self.config.CHUNK_OVERLAP
-                )
-                
-                print(f"   Chunks: {len(chunks)} ({[len(c) for c in chunks]} chars)")
-                
-                # Tóm tắt từng chunk
-                chunk_summaries = []
-                for i, chunk in enumerate(chunks):
-                    print(f"   Processing chunk {i+1}/{len(chunks)}...")
-                    summary = self._generate_summary_single(chunk, config)
-                    chunk_summaries.append(summary)
-                
-                # Merge summaries với improved algorithm
-                summary_text = self._merge_chunk_summaries(chunk_summaries)
-                print(f"   ✓ Merged {len(chunk_summaries)} chunk summaries")
-                
-            else:
-                # Simple process cho văn bản ngắn
-                if len(text) > config['input_max_chars']:
-                    text = text[:config['input_max_chars']]
-                    print(f"   Input: {len(text)} chars (truncated)")
-                else:
-                    print(f"   Input: {len(text)} chars")
-                
-                # Sinh summary
-                summary_text = self._generate_summary_single(text, config)
-            
-            # ============================================================
-            # POST-PROCESSING: Fast cleaning
-            # ============================================================
-            result = self._post_process_summary(summary_text)
-            
-            # Stats
-            total_time = time.time() - total_start
-            self._stats["total_time"] = total_time
-            
-            word_count = len(result.split())
-            char_count = len(result)
-            
-            print(f"✅ Summary completed in {total_time:.2f}s:")
-            print(f"   {char_count} chars | {word_count} words")
-            print(f"   Breakdown: Token={self._stats['tokenization_time']:.2f}s, "
-                  f"Gen={self._stats['generation_time']:.2f}s, "
-                  f"Post={self._stats['postprocess_time']:.2f}s")
-            print(f"   Ends with: '{result[-1]}' ✓")
-            
-            # Validate length
-            expected_min = config['min_length'] // 1.5  # Rough estimate: 1.5 chars/token
-            if word_count < expected_min:
-                print(f"   ⚠️ Warning: Output shorter than expected (got {word_count}, expected >{expected_min:.0f})")
-            else:
-                print(f"   ✓ Length within expected range")
-            
-            # Reset stats
-            self._stats = {k: 0 for k in self._stats}
-            
-            return result
-        
-        except Exception as e:
-            raise Exception(f"Summarization failed: {str(e)}")
+    def _reset_stats(self):
+        self._stats = {k: 0 for k in self._stats}
     
     def is_model_loaded(self) -> bool:
-        """Check if model is loaded"""
         return self.model is not None and self.tokenizer is not None
     
     def get_performance_stats(self) -> Dict:
-        """Get performance statistics"""
         return self._stats.copy()
-    
