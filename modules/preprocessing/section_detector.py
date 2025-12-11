@@ -10,7 +10,7 @@ from dataclasses import dataclass
 
 @dataclass
 class Section:
-    """Represents a document section"""
+    """Dai dien mot phan muc trong van ban"""
     title: str
     content: str
     level: int
@@ -21,21 +21,21 @@ class Section:
 
 
 class SectionDetector:
-    """Advanced document section detection"""
+    """Phat hien phan muc van ban nang cao"""
     
     def __init__(self):
-        # Section patterns - ordered by priority
+        # Cac mau de phat hien tieu de phan muc
         self.patterns = [
-            # Pattern 1: Numbered sections (1., 1.1, 1.1.1)
+            # Numbered sections (1., 1.1, 1.1.1)
             (r'^(\d+(?:\.\d+)*)\.\s+(.+?)$', 'numbered'),
             
-            # Pattern 2: Named sections (Introduction, Methods, etc.)
+            # Named sections (Introduction, Methods, etc.)
             (r'^([A-Z][A-Za-z\s]{2,40})\s*$', 'named'),
             
-            # Pattern 3: ALL CAPS headings
+            # ALL CAPS headings
             (r'^([A-Z\s]{3,40})$', 'caps'),
             
-            # Pattern 4: Markdown-style headers (# Header)
+            # Markdown-style headers (# Header)
             (r'^(#{1,6})\s+(.+?)$', 'markdown'),
         ]
         
@@ -50,10 +50,8 @@ class SectionDetector:
     
     def detect_sections(self, text: str) -> List[Section]:
         """
-        Detect all sections in document
-        
-        Returns:
-            List of Section objects with metadata
+        Phat hien cac phan muc trong van ban
+        Tra ve danh sach cac doi tuong Section kem theo thong tin chi tiet (metadata)
         """
         if not text or not text.strip():
             return []
@@ -68,15 +66,15 @@ class SectionDetector:
             if not line_stripped:
                 continue
             
-            # Try to match section header
+            # Thu phan tieu de phan muc
             section_info = self._match_section_header(line_stripped, i)
             
             if section_info:
-                # Save previous section
+                # Luu phan muc truoc do
                 if current_section and current_section.content.strip():
                     sections.append(current_section)
                 
-                # Start new section
+                # Bat dau phan muc moi
                 current_section = Section(
                     title=section_info['title'],
                     content="",
@@ -86,11 +84,11 @@ class SectionDetector:
                     section_type=self._classify_section_type(section_info['title'])
                 )
             else:
-                # Add to current section content
+                # Them vao noi dung phan muc hien tai
                 if current_section:
                     current_section.content += line_stripped + " "
                 else:
-                    # No section yet, create default intro section
+                    # Chua co phan muc nao, tao phan muc gioi thieu mac dinh
                     current_section = Section(
                         title="Introduction",
                         content=line_stripped + " ",
@@ -99,17 +97,17 @@ class SectionDetector:
                         section_type="introduction"
                     )
         
-        # Add last section
+        # Them phan muc cuoi cung
         if current_section and current_section.content.strip():
             sections.append(current_section)
         
-        # Post-process: merge very small sections
+        # Xu ly hau qua: gop cac phan muc rat nho
         sections = self._merge_small_sections(sections)
         
         return sections
     
     def _match_section_header(self, line: str, line_num: int) -> Optional[Dict]:
-        """Try to match line against section patterns"""
+        """Thu phan tieu de phan muc"""
         
         for pattern, pattern_type in self.patterns:
             match = re.match(pattern, line)
@@ -161,7 +159,7 @@ class SectionDetector:
         return None
     
     def _classify_section_type(self, title: str) -> str:
-        """Classify section based on title keywords"""
+        """Phan loai phan muc dua tren tu khoa trong tieu de"""
         title_lower = title.lower()
         
         for section_type, keywords in self.section_keywords.items():
@@ -172,7 +170,7 @@ class SectionDetector:
     
     def _merge_small_sections(self, sections: List[Section], 
                               min_length: int = 100) -> List[Section]:
-        """Merge sections that are too small"""
+        """Gop cac phan muc qua nho"""
         if not sections:
             return sections
         
@@ -182,12 +180,12 @@ class SectionDetector:
         while i < len(sections):
             current = sections[i]
             
-            # If section is too small and not the last one
+            # Neu phan muc hien tai qua ngan, gop voi phan muc tiep theo
             if len(current.content) < min_length and i < len(sections) - 1:
-                # Merge with next section
+                # Gop voi phan muc tiep theo
                 next_section = sections[i + 1]
                 next_section.content = current.content + " " + next_section.content
-                i += 1  # Skip current
+                i += 1  # Bo qua phan muc hien tai
             else:
                 merged.append(current)
                 i += 1
@@ -208,7 +206,7 @@ class SectionDetector:
         if not sections:
             return structure
         
-        # Count section types
+        # Dem loai phan muc
         for section in sections:
             structure['section_types'][section.section_type] = \
                 structure['section_types'].get(section.section_type, 0) + 1
@@ -218,11 +216,11 @@ class SectionDetector:
             elif section.section_type == 'conclusion':
                 structure['has_conclusion'] = True
         
-        # Calculate average length
+        # Tinh do dai trung binh phan muc
         total_length = sum(len(s.content) for s in sections)
         structure['average_section_length'] = total_length // len(sections)
         
-        # Determine if well-structured (has intro + conclusion + 2+ sections)
+        # Xac dinh xem co cau truc tot (co gioi thieu + ket luan + 2+ phan muc)
         structure['is_well_structured'] = (
             structure['has_introduction'] and 
             structure['has_conclusion'] and 
@@ -233,25 +231,25 @@ class SectionDetector:
     
     def extract_key_sentences(self, text: str, top_k: int = 10) -> List[str]:
         """
-        Extract key sentences using simple TF-IDF scoring
+        Trich xuat cau quan trong (key) su dung diem so TF-IDF don gian
         
         Args:
-            text: Input text
-            top_k: Number of sentences to extract
+            text: Van ban goc
+            top_k: So cau can trich xuat
         
         Returns:
-            List of key sentences in original order
+            Dan sach cac cau quan trong (key sentences) theo dung thu tu xuat hien ban dau
         """
         from collections import Counter
         
-        # Split into sentences
+        # Tach van ban thanh cac cau
         sentences = re.split(r'(?<=[.!?])\s+', text)
         sentences = [s.strip() for s in sentences if len(s.strip()) > 20]
         
         if len(sentences) <= top_k:
             return sentences
         
-        # Calculate word frequencies
+        # Tinh tan so tu
         all_words = []
         for sentence in sentences:
             words = [w.lower() for w in re.findall(r'\b\w+\b', sentence)]
@@ -259,30 +257,31 @@ class SectionDetector:
         
         word_freq = Counter(all_words)
         
-        # Score sentences
+        # Tinh diem so cho tung cau
         sentence_scores = []
         for sentence in sentences:
             words = [w.lower() for w in re.findall(r'\b\w+\b', sentence)]
             if not words:
                 continue
             
-            # TF score (normalized by sentence length)
+            # TF score (chuan hoa theo do dai cau)
             score = sum(word_freq[w] for w in words) / len(words)
             
-            # Boost score for sentences with numbers/stats
+            # Tang diem cho cau co so/thong ke
             if re.search(r'\d+', sentence):
                 score *= 1.2
             
-            # Boost for sentences at beginning (likely important)
+            # Tang diem cho cau o dau van ban (co kha nang quan trong)
             position_boost = 1.0 - (sentences.index(sentence) / len(sentences)) * 0.3
             score *= position_boost
             
             sentence_scores.append((score, sentence, sentences.index(sentence)))
         
-        # Get top-k sentences
+        # Lay top-k cau
         top_sentences = sorted(sentence_scores, reverse=True)[:top_k]
         
-        # Sort by original order
+        # Sap xep theo thu tu ban dau
         top_sentences.sort(key=lambda x: x[2])
         
         return [s[1] for s in top_sentences]
+    

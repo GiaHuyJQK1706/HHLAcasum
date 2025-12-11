@@ -14,7 +14,6 @@ class SummaryEvaluator:
     def calculate_compression_ratio(self, original_text: str, summary: str) -> float:
         """
         Calculate compression ratio
-        
         Cong thuc: (length of summary / length of original text) * 100
         """
         try:
@@ -48,7 +47,6 @@ class SummaryEvaluator:
     def validate_summary(self, summary: str, min_length: int = 10) -> Dict:
         """
         Validate if summary is acceptable
-        
         Thuat toan: Kiem tra do dai toi thieu va cau chuan
         """
         try:

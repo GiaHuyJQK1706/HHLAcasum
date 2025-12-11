@@ -10,22 +10,22 @@ from modules.preprocessing.section_detector import SectionDetector
 
 
 class Preprocessing:
-    """Enhanced text preprocessing with structure awareness"""
+    """Tien xu ly van ban truoc khi tom tat"""
     
     def __init__(self, config: ModuleConfigs = None):
         self.config = config or ModuleConfigs()
         self.section_detector = SectionDetector()
     
     def normalize_text(self, text: str) -> str:
-        """Normalize text by removing extra whitespace and special characters"""
+        """Tien xu ly van ban truoc khi tom tat"""
         try:
-            # Remove extra whitespace
+            # Loai bo khoang trang thua
             text = ' '.join(text.split())
             
-            # Remove multiple punctuation
+            # Loai bo dau cham lap di lap lai
             text = re.sub(r'([.!?]){2,}', r'\1', text)
             
-            # Normalize quotes and escape characters
+            # Tien xu ly dau nhay va ky tu escape
             text = (text
                     .replace("\\", "\\\\")
                     .replace(""", '"').replace(""", '"')
@@ -38,7 +38,7 @@ class Preprocessing:
             raise Exception(f"Text normalization failed: {str(e)}")
     
     def split_sentences(self, text: str) -> List[str]:
-        """Split text into sentences"""
+        """Chia van ban thanh cac cau"""
         try:
             sentences = re.split(r'(?<=[.!?])\s+', text)
             sentences = [s.strip() for s in sentences if s.strip()]
@@ -47,7 +47,7 @@ class Preprocessing:
             raise Exception(f"Sentence splitting failed: {str(e)}")
     
     def tokenize(self, text: str) -> List[str]:
-        """Tokenize text into words"""
+        """Phan tach van ban thanh cac tu"""
         try:
             tokens = re.findall(r'\b\w+\b|[.!?]', text.lower())
             return tokens
@@ -55,19 +55,19 @@ class Preprocessing:
             raise Exception(f"Tokenization failed: {str(e)}")
     
     def detect_sections(self, text: str):
-        """Detect document sections (wrapper for SectionDetector)"""
+        """Phat hien cac phan muc trong van ban (wrapper cho SectionDetector)"""
         try:
             return self.section_detector.detect_sections(text)
         except Exception as e:
             raise Exception(f"Section detection failed: {str(e)}")
     
     def process(self, text: str) -> str:
-        """Process text through all preprocessing steps"""
+        """Tien xu ly van ban qua tat ca cac buoc tien xu ly"""
         try:
-            # Step 1: Normalize text
+            # Buoc 1: Tien xu ly van ban
             text = self.normalize_text(text)
             
-            # Validate text length
+            # Buoc 2: Kiem tra do dai van ban
             if len(text) < self.config.MIN_TEXT_LENGTH:
                 raise ValueError(
                     f"Text is too short. Minimum length: {self.config.MIN_TEXT_LENGTH} characters"

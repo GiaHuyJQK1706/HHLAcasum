@@ -25,7 +25,7 @@ class SummaryValidator:
         issues = []
         warnings = []
         
-        # Check 1: Not empty
+        # Check 1: Khong de trong
         if not summary or not summary.strip():
             return {
                 'valid': False,
@@ -38,37 +38,37 @@ class SummaryValidator:
         words = summary.split()
         word_count = len(words)
         
-        # Check 2: Minimum length
+        # Check 2: Do dai toi thieu
         if word_count < self.min_word_count:
             issues.append(f'Too short: {word_count} words (minimum: {self.min_word_count})')
         elif word_count < expected_min_words:
             warnings.append(f'Shorter than expected: {word_count} words (expected: {expected_min_words}+)')
         
-        # Check 3: Proper ending
+        # Check 3: Cham dut cau hop le
         if summary[-1] not in self.required_punctuation:
             issues.append('Does not end with proper punctuation')
         
-        # Check 4: No incomplete section numbers
+        # Check 4: Khong co so phan muc khong hoan chinh
         incomplete_sections = self._check_incomplete_sections(summary)
         if incomplete_sections:
             issues.append(f'Incomplete sections found: {incomplete_sections}')
         
-        # Check 5: No section number jumps
+        # Check 5: Khong co nhay so phan muc
         section_jumps = self._check_section_jumps(summary)
         if section_jumps:
             issues.append(f'Section number jumps detected: {section_jumps}')
         
-        # Check 6: Coherence score
+        # Check 6: Diem dong bo
         coherence_score = self._calculate_coherence(summary)
         if coherence_score < 0.5:
             warnings.append(f'Low coherence score: {coherence_score:.2f}')
         
-        # Check 7: Repetition
+        # Check 7: Lap lai
         repetition_score = self._check_repetition(summary)
         if repetition_score > 0.3:
             warnings.append(f'High repetition detected: {repetition_score:.2%}')
         
-        # Calculate overall score
+        # Tinh diem tong the
         score = self._calculate_overall_score(
             word_count, expected_min_words, coherence_score, 
             repetition_score, len(issues), len(warnings)
@@ -123,10 +123,13 @@ class SummaryValidator:
     
     def _calculate_coherence(self, text: str) -> float:
         """
-        Calculate coherence score based on:
-        - Sentence connectivity
-        - Use of transition words
-        - Consistent tense
+        Tính điểm độ đồng bộ (0-1)
+        Cach tiep can don gian:
+        - Đếm số câu trong văn bản.
+        - Kiểm tra sự xuất hiện của các từ chuyển tiếp giữa các câu.
+        - Tính tỷ lệ câu có từ chuyển tiếp so với tổng số câu.
+        - Sử dụng tỷ lệ này để đánh giá độ đồng bộ.
+        Trả về điểm độ đồng bộ trong khoảng từ 0 đến 1
         """
         score = 1.0
         
@@ -181,39 +184,32 @@ class SummaryValidator:
                                  coherence: float, repetition: float,
                                  num_issues: int, num_warnings: int) -> float:
         """Calculate overall quality score (0-1)"""
-        score = 1.0
-        
+        score = 1.0        
         # Length factor
         if word_count < expected_min:
             score *= (word_count / expected_min)
-        
         # Coherence factor
         score *= coherence
-        
         # Repetition penalty
         score *= (1.0 - repetition * 0.5)
-        
         # Issues penalty
         score *= (1.0 - num_issues * 0.2)
-        
         # Warnings penalty
         score *= (1.0 - num_warnings * 0.05)
-        
         return max(0.0, min(1.0, score))
     
     def fix_common_issues(self, summary: str) -> str:
         """Auto-fix common issues in summary"""
-        
-        # Fix 1: Remove incomplete sections at the end
+        # Fix 1: Xoa so phan muc khong hoan chinh o cuoi
         summary = re.sub(r'\d+\.\s*$', '', summary)
         
-        # Fix 2: Remove section headers without content at the end
+        # Fix 2: Xoa cac dong chi so phan muc o cuoi
         lines = summary.split('\n')
         while lines and re.match(r'^\d+\.', lines[-1].strip()):
             lines.pop()
         summary = '\n'.join(lines)
         
-        # Fix 3: Ensure proper ending
+        # Fix 3: Cham dut cau hop le
         summary = summary.strip()
         if summary and summary[-1] not in '.!?':
             # Find last proper sentence ending
@@ -225,9 +221,8 @@ class SummaryValidator:
             if last_period > len(summary) * 0.65:
                 summary = summary[:last_period + 1]
             else:
-                summary += '.'
-        
-        # Fix 4: Remove duplicate consecutive sentences
+                summary += '.'        
+        # Fix 4: Xoa cac cau lap lai lien tiep
         sentences = re.split(r'(?<=[.!?])\s+', summary)
         unique = []
         prev = None
@@ -240,7 +235,7 @@ class SummaryValidator:
         
         summary = ' '.join(unique)
         
-        # Fix 5: Clean up spacing
+        # Fix 5: Xoa khoang trang thua
         summary = re.sub(r'\s+', ' ', summary)
         summary = re.sub(r'\s+([.,!?;:])', r'\1', summary)
         

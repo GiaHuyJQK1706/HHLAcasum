@@ -25,13 +25,21 @@ class ModuleConfigs:
     # SUMMARY LENGTHS
     # ============================================================
     
-    SUMMARY_MIN_LENGTH_SHORT: int = 80    
-    SUMMARY_MAX_LENGTH_SHORT: int = 200   
-    SUMMARY_MIN_LENGTH_LONG: int = 280    
+    SUMMARY_MIN_LENGTH_SHORT: int = 60    
+    SUMMARY_MAX_LENGTH_SHORT: int = 150   
+    SUMMARY_MIN_LENGTH_LONG: int = 300    
     SUMMARY_MAX_LENGTH_LONG: int = 600    
     
     # ============================================================
     # GENERATION PARAMETERS
+    # LENGTH PENALTY: la gia tri dieu chinh do dai
+    # NUM BEAMS: so luong beam search
+    # REPETITION PENALTY: gia tri dieu chinh lap lai
+    # EARLY STOPPING: dung som
+    # NO REPEAT NGRAM: khong lap lai n-gram
+    # TEMPERATURE: dieu chinh do da dang
+    # TOP P: nucleus sampling (xac suat)
+    # DO SAMPLE: co su dung sampling khong
     # ============================================================
     
     # Short summary
@@ -45,7 +53,7 @@ class ModuleConfigs:
     SHORT_DO_SAMPLE: bool = False
     
     # Long summary
-    LONG_LENGTH_PENALTY: float = 2.2       
+    LONG_LENGTH_PENALTY: float = 1.5       
     LONG_NUM_BEAMS: int = 4                
     LONG_REPETITION_PENALTY: float = 1.1
     LONG_EARLY_STOPPING: bool = False
@@ -92,6 +100,10 @@ class ModuleConfigs:
     
     # ============================================================
     # QUALITY VALIDATION
+    # ENABLE QUALITY VALIDATION: dung de kiem tra chat luong
+    # AUTO FIX ISSUES: tu dong sua cac van de thuong gap
+    # RETRY ON LOW QUALITY: thu lai neu chat luong thap
+    # MAX RETRIES: so lan thu lai toi da
     # ============================================================
     
     ENABLE_QUALITY_VALIDATION: bool = True

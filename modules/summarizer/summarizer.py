@@ -87,7 +87,7 @@ class Summarizer:
             print(f"Warning: Failed to unload model: {str(e)}")
     
     # ================================================================
-    # MAIN: NATURAL FLOW SUMMARIZATION
+    # MAIN: TOM TAT VAN BAN THANH VAN BAN TU NHIEN
     # ================================================================
     
     def summarize(self, text: str, summary_length: str = "short") -> str:
@@ -102,7 +102,7 @@ class Summarizer:
             print(f"\n📝 Generating {summary_length} natural flow summary...")
             print(f"   Target: {config['min_length']}-{config['max_length']} tokens")
             
-            # ENHANCED STRATEGY: Extractive + Abstractive Hybrid
+            # CHIEN LUOC NANG CAO: Ket hop Trich xuat + Truu tuong (toc do cao)
             if self.config.USE_STRUCTURE_AWARE and len(text) > 3000:
                 sections = self.section_detector.detect_sections(text)
                 structure = self.section_detector.get_document_structure(sections)
@@ -119,17 +119,17 @@ class Summarizer:
                 print(f"   Strategy: Standard with Flow Enhancement")
                 summary = self._standard_with_flow(text, config)
             
-            # CRITICAL: Natural Flow Post-Processing
+            # CRITICAL: Xu ly hau qua van ban tu nhien
             summary = self._ensure_natural_flow(summary)
             
-            # Quality validation
+            # Kiem tra chat luong va sua loi neu can
             if self.config.ENABLE_QUALITY_VALIDATION:
                 summary = self._validate_and_fix_natural(summary, config)
             
-            # Final polish
+            # Hoan thien cuoi cung
             summary = self._final_polish(summary)
             
-            # Stats
+            # Thong ke
             total_time = time.time() - total_start
             self._print_stats(summary, total_time, config)
             self._reset_stats()
@@ -140,7 +140,7 @@ class Summarizer:
             raise Exception(f"Summarization failed: {str(e)}")
     
     # ================================================================
-    # STRATEGY 1: HIERARCHICAL WITH NATURAL FLOW
+    # CHIEN LUOC 1: PHAN CAP VOI NATURAL FLOW
     # ================================================================
     
     def _hierarchical_natural_flow(self, sections: List[Section], 
@@ -149,7 +149,7 @@ class Summarizer:
         
         print(f"   Phase 1/3: Extracting key information per section...")
         
-        # Step 1: Extract key information from each section
+        # Trich xuat thong tin chinh tu moi phan muc
         section_extracts = []
         for i, section in enumerate(sections, 1):
             if len(section.content) < 50:
@@ -157,7 +157,7 @@ class Summarizer:
             
             print(f"      [{i}/{len(sections)}] {section.title}")
             
-            # Extract key sentences (not just summarize)
+            # Trich xuat cau chinh (khong chi la tom tat)
             key_sentences = self._extract_key_info_from_section(
                 section.content, 
                 section.section_type,
@@ -173,12 +173,12 @@ class Summarizer:
         
         print(f"   Phase 2/3: Combining into coherent narrative...")
         
-        # Step 2: Combine extracts into a flowing narrative
+        # Ket hop cac phan trich xuat thanh van ban chay
         combined_narrative = self._combine_to_narrative(section_extracts)
         
         print(f"   Phase 3/3: Final abstractive polish...")
         
-        # Step 3: Abstractive refinement for natural flow
+        # Chinh sua truu tuong de van ban tu nhien
         polish_config = config.copy()
         polish_config['prefix'] = """Rewrite this as a single, flowing paragraph without section numbers or bullet points. 
 Ensure smooth transitions between ideas and complete sentences throughout. 
@@ -201,10 +201,10 @@ Text: """
         if len(sentences) <= max_sentences:
             return sentences
         
-        # Score sentences by importance
+        # Diem so cac cau theo do quan trong
         from collections import Counter
         
-        # Calculate word frequencies
+        # Tinh tan so tu
         all_words = []
         for sent in sentences:
             words = [w.lower() for w in re.findall(r'\b\w+\b', sent)]
@@ -212,13 +212,13 @@ Text: """
         
         word_freq = Counter(all_words)
         
-        # Remove very common words (stopwords)
+        # Loai bo cac tu pho bien (stopwords)
         stopwords = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 
                      'of', 'with', 'by', 'from', 'as', 'is', 'are', 'was', 'were', 'been',
                      'be', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'should',
                      'can', 'could', 'may', 'might', 'must', 'that', 'this', 'these', 'those'}
         
-        # Score sentences
+        # Diem so cac cau theo do quan trong
         scored_sentences = []
         for idx, sentence in enumerate(sentences):
             words = [w.lower() for w in re.findall(r'\b\w+\b', sentence) if w.lower() not in stopwords]
@@ -226,17 +226,17 @@ Text: """
             if not words:
                 continue
             
-            # TF score
+            # Diem so TF
             tf_score = sum(word_freq[w] for w in words) / len(words)
             
-            # Position bonus (first and last sentences often important)
+            # Thuong diem theo vi tri (Uu tien cau dau va cau cuoi trong phan muc)
             position_boost = 1.0
             if idx == 0:
                 position_boost = 1.3  # First sentence
             elif idx == len(sentences) - 1 and section_type == 'conclusion':
                 position_boost = 1.2  # Last in conclusion
             
-            # Technical content bonus (numbers, technical terms)
+            # Thuong diem noi dung ky thuat (so, cac term ky thuat)
             tech_boost = 1.0
             if re.search(r'\d+', sentence):
                 tech_boost += 0.2
@@ -246,7 +246,7 @@ Text: """
             final_score = tf_score * position_boost * tech_boost
             scored_sentences.append((final_score, sentence, idx))
         
-        # Get top sentences, preserve order
+        # Lay cac cau hang dau, giu nguyen thu tu
         top_sentences = sorted(scored_sentences, reverse=True)[:max_sentences]
         top_sentences.sort(key=lambda x: x[2])  # Sort by original position
         
@@ -255,9 +255,9 @@ Text: """
     def _combine_to_narrative(self, section_extracts: List[Dict]) -> str:
         """Combine section extracts into a flowing narrative"""
         
-        # Transition phrases for natural flow
+        # Cac cau chuyen tiep cho su chuyen dong tu nhien
         transitions = {
-            'introduction': '',  # No transition needed at start
+            'introduction': '',  # Khong can cau chuyen tiep o dau
             'content': 'Furthermore, ',
             'methods': 'In terms of methodology, ',
             'results': 'The findings indicate that ',
@@ -271,9 +271,9 @@ Text: """
             section_type = extract['type']
             content = extract['key_info']
             
-            # Add transition if needed
+            # Them cau chuyen tiep neu can
             if i > 0 and section_type != prev_type:
-                # Add subtle transition
+                # Them cau chuyen tiep phu hop
                 if section_type == 'conclusion':
                     narrative += " "
                 else:
@@ -281,7 +281,7 @@ Text: """
             else:
                 narrative += " "
             
-            # Add content (remove any existing section numbers)
+            # Them noi dung (loai bo cac so hieu phan muc neu co)
             content_clean = re.sub(r'^\d+\.?\s*', '', content)
             narrative += content_clean
             
@@ -290,7 +290,7 @@ Text: """
         return narrative.strip()
     
     # ================================================================
-    # STRATEGY 2: EXTRACTIVE-ABSTRACTIVE HYBRID
+    # CHIEN LUOC 2: KET HOP TRICH XUAT - TRUU TUONG
     # ================================================================
     
     def _extractive_abstractive_hybrid(self, text: str, config: Dict) -> str:
@@ -298,7 +298,7 @@ Text: """
         
         print(f"   Phase 1/2: Extracting key sentences...")
         
-        # Extract more sentences for long summaries
+        # Trich xuat cau chinh
         num_sentences = 15 if config['summary_type'] == 'long' else 10
         key_sentences = self.section_detector.extract_key_sentences(text, top_k=num_sentences)
         
@@ -307,7 +307,7 @@ Text: """
         
         print(f"   Phase 2/2: Generating natural flowing summary...")
         
-        # Generate natural summary from extracted content
+        # Tao tom tat van ban tu nhien
         gen_config = config.copy()
         gen_config['prefix'] = """Create a single, flowing paragraph that naturally describes this content. 
 No section numbers, no bullet points, just smooth narrative prose with complete sentences.
@@ -319,11 +319,11 @@ Text: """
         return summary
     
     # ================================================================
-    # STRATEGY 3: STANDARD WITH FLOW ENHANCEMENT
+    # CHIEN LUOC 3: CAI THIEN TIEU CHUAN VOI VAN BAN TU NHIEN
     # ================================================================
     
     def _standard_with_flow(self, text: str, config: Dict) -> str:
-        """Standard summarization with flow enhancement"""
+        """ Standard summarization with flow enhancement """
         
         if len(text) > config['input_max_chars']:
             print(f"   Input: {len(text)} chars → Smart chunking")
@@ -331,7 +331,7 @@ Text: """
             chunks = self._split_into_smart_chunks(text, config['input_max_chars'])
             print(f"   Chunks: {len(chunks)}")
             
-            # Summarize each chunk
+            # Tom tat moi chunk
             chunk_summaries = []
             for i, chunk in enumerate(chunks, 1):
                 print(f"      Chunk {i}/{len(chunks)}")
@@ -342,7 +342,7 @@ Text: """
                 summary = self._generate_summary_single(chunk, chunk_config)
                 chunk_summaries.append(summary)
             
-            # Merge into natural flow
+            # Ket hop thanh van ban tu nhien
             if len(chunk_summaries) > 1:
                 merged = self._merge_to_natural_flow(chunk_summaries, config)
             else:
@@ -359,12 +359,12 @@ Text: """
             return self._generate_summary_single(text, config)
     
     def _split_into_smart_chunks(self, text: str, max_size: int) -> List[str]:
-        """Smart chunking preserving paragraph boundaries"""
+        """ Smart chunking preserving paragraph boundaries - returns list of text chunks """
         
         if len(text) <= max_size:
             return [text]
         
-        # Try to split by paragraphs first
+        # Tach tung doan van truoc
         paragraphs = text.split('\n\n')
         
         chunks = []
@@ -375,13 +375,13 @@ Text: """
             if not para:
                 continue
             
-            # If adding this paragraph exceeds limit
+            # Neu them doan van nay vuot qua gioi han
             if len(current_chunk) + len(para) > max_size:
                 if current_chunk:
                     chunks.append(current_chunk.strip())
                     current_chunk = para
                 else:
-                    # Single paragraph too long, split by sentences
+                    # Doan van don le qua dai, tach theo cau
                     sentences = re.split(r'(?<=[.!?])\s+', para)
                     for sent in sentences:
                         if len(current_chunk) + len(sent) > max_size:
@@ -399,35 +399,35 @@ Text: """
         return chunks
     
     def _merge_to_natural_flow(self, summaries: List[str], config: Dict) -> str:
-        """Merge multiple summaries into natural flowing text"""
+        """ Ket hop nhieu tom tat thanh van ban chay tu nhien """
         
         print(f"   Merging {len(summaries)} summaries into natural flow...")
         
-        # Remove duplicates
+        # Loai bo cac tom tat trung lap
         unique_summaries = []
         seen_content = set()
         
         for summary in summaries:
-            # Normalize for comparison
+            # Chuan hoa noi dung de so sanh
             normalized = ' '.join(summary.lower().split()[:10])
             if normalized not in seen_content:
                 unique_summaries.append(summary)
                 seen_content.add(normalized)
         
-        # Combine with transitions
+        # Ket hop voi cac cau chuyen tiep
         combined = ""
         for i, summary in enumerate(unique_summaries):
-            # Remove any section numbers
+            # Loai bo cac so phan
             summary = re.sub(r'^\d+\.?\s*', '', summary)
             summary = re.sub(r'\n\d+\.?\s*', ' ', summary)
             
             if i == 0:
                 combined = summary
             else:
-                # Add subtle transition
+                # Them cau chuyen tiep
                 combined += " Additionally, " + summary[0].lower() + summary[1:]
         
-        # Final polish pass
+        # Buoc chinh sua cuoi cung
         polish_config = config.copy()
         polish_config['prefix'] = """Rewrite this as one smooth, flowing paragraph. 
 Remove any redundancy, ensure logical flow, and maintain complete sentences.
@@ -440,7 +440,7 @@ Text: """
         return polished
     
     # ================================================================
-    # NATURAL FLOW POST-PROCESSING
+    # XU LY HAU QUA VAN BAN TU NHIEN
     # ================================================================
     
     def _ensure_natural_flow(self, summary: str) -> str:
@@ -448,30 +448,30 @@ Text: """
         
         print(f"   Ensuring natural flow...")
         
-        # Remove ALL section numbers and markers
+        # Loai bo toan bo so phan muc va dau danh dau
         summary = re.sub(r'^\d+\.?\s*', '', summary)  # At start
         summary = re.sub(r'\n\d+\.?\s*', ' ', summary)  # At line breaks
         summary = re.sub(r'\s+\d+\.?\s+', ' ', summary)  # In middle
         summary = re.sub(r'\b\d+\.\d+\b', '', summary)  # Subsection numbers like 1.1
         
-        # Remove bullet points and list markers
+        # Loai bo cac dau danh dau va dau danh sach
         summary = re.sub(r'[-•*]\s+', '', summary)
         
-        # Fix spacing
+        # Chinh lai khoang trang
         summary = re.sub(r'\s+', ' ', summary)
         summary = re.sub(r'\s+([.,!?;:])', r'\1', summary)
         
-        # Ensure proper sentence spacing
+        # Chinh lai khoang trang giua cac cau
         summary = re.sub(r'([.!?])([A-Z])', r'\1 \2', summary)
         
-        # Remove section headers that might remain
+        # Loai bo cac tieu de phan muc con lai
         lines = summary.split('\n')
         cleaned_lines = []
         for line in lines:
             line = line.strip()
-            # Skip lines that look like headers (short, capitalized)
+            # Bo qua cac dong co the la tieu de (Ngan, viet hoa, co dau ':')
             if len(line) < 100 and line and line[0].isupper() and ':' in line:
-                # This might be a header, skip it
+                # Dong nay co the la tieu de, bo qua luon
                 continue
             if line:
                 cleaned_lines.append(line)
@@ -481,7 +481,7 @@ Text: """
         return summary.strip()
     
     def _validate_and_fix_natural(self, summary: str, config: Dict) -> str:
-        """Validate and fix for natural flow"""
+        """Xac thuc va chinh sua de co luu luong tu nhien"""
         
         start_time = time.time()
         
@@ -502,12 +502,12 @@ Text: """
         return summary
     
     def _final_polish(self, summary: str) -> str:
-        """Final polishing for perfect output"""
+        """Chinh sua cuoi cung de co ket qua hoan hao"""
         
-        # Ensure complete sentence at end
+        # Lam cho chac chan ket thuc bang cau hoan chinh
         summary = summary.strip()
         
-        # Find last proper sentence ending
+        # Tim dau cham cuoi cau hop le
         if summary and summary[-1] not in '.!?':
             last_period = max(
                 summary.rfind('.'),
@@ -515,18 +515,18 @@ Text: """
                 summary.rfind('?')
             )
             
-            # Only cut if sentence ending is near the end (within last 35%)
+            # Chi cat neu dau cau gan cuoi (trong vong 35% cuoi)
             if last_period > len(summary) * 0.65:
                 summary = summary[:last_period + 1].strip()
             else:
-                # Add period if no good ending found
+                # Them dau cham neu khong tim thay ket thuc tot
                 summary += '.'
         
-        # Remove any remaining artifacts
+        # Loai bo cac ton tai con lai
         summary = re.sub(r'\s+', ' ', summary)
         summary = re.sub(r'\s+([.,!?;:])', r'\1', summary)
         
-        # Spell check
+        # Kiem tra chinh ta
         if self.config.ENABLE_SPELL_CHECK:
             summary = self._fast_spell_check(summary)
         
@@ -537,7 +537,7 @@ Text: """
     # ================================================================
     
     def _generate_summary_single(self, text: str, config: Dict) -> str:
-        """Generate summary for single text chunk"""
+        """Tao van ban tom tat tu nhien cho mot chunk don le"""
         
         if config.get('prefix'):
             input_text = config['prefix'] + text
