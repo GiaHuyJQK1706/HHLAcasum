@@ -39,26 +39,13 @@ class AppUI:
         )
 
         with gr.Blocks(title="HHL Acasum", theme=HHL_theme) as interface:
-            gr.Markdown(
-                """
-            # 📚 HHL Acasum
+            
+            gr.Markdown("""
+            # HHL Acasum
 
             A powerful application for summarizing academic texts using state-of-the-art Transformer models.
             """
             )
-            gr.Markdown("""
-            <style>
-            .full-textbox textarea {
-                height: 600px !important;
-                max-height: none !important;
-                overflow: auto !important;
-                font-family: monospace !important;
-                font-size: 14px !important;
-                padding: 10px !important;
-                white-space: pre-wrap !important;
-            }
-            </style>
-            """)
 
             with gr.Tab("Summarization"):
                 gr.Markdown("### Import Text")
@@ -89,8 +76,7 @@ class AppUI:
                     max_lines=14,
                     interactive=False,
                     placeholder="Text preview will appear here...",
-                    show_copy_button=True,
-                    elem_classes="full-textbox"  # Target CSS
+                    show_copy_button=True
                 )
 
                 status_message = gr.Textbox(
@@ -123,8 +109,7 @@ class AppUI:
                     max_lines=25,
                     interactive=False,
                     placeholder="Result will appear here...",
-                    show_copy_button=True,
-                    elem_classes="full-textbox"  # Target CSS
+                    show_copy_button=True
                 )
 
                 export_file = gr.File(label="Download File")
@@ -314,5 +299,6 @@ class AppUI:
             share=share,
             server_name=server_name,
             server_port=server_port,
-            show_error=True
+            show_error=True,
+            favicon_path="./ui/img/favicon-96x96.png"
         )

@@ -644,3 +644,4 @@ Text: """
     
     def get_performance_stats(self) -> Dict:
         return self._stats.copy()
+    
