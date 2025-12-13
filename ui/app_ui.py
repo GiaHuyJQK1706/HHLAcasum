@@ -1,7 +1,7 @@
 """
 @ file ui/app_ui.py
 @ Copyright (C) 2025 by Gia-Huy Do & HHL Team
-@ v0.97: Add HHL Theme
+@ v0.99: Add HHL Theme, add About tab
 """
 import gradio as gr
 from ui.event_handles import EventHandles
@@ -57,23 +57,24 @@ class AppUI:
                             label="Choose file (.txt, .pdf, .docx)",
                             file_types=[".txt", ".pdf", ".docx"]
                         )
-                        import_file_btn = gr.Button("📂 Import from File", variant="primary")
+                        import_file_btn = gr.Button("Import from File", variant="primary")
 
                     with gr.Column():
                         gr.Markdown("**or Direct Input**")
                         text_input = gr.Textbox(
                             label="Enter text directly",
                             lines=8,
+                            max_lines=8,
                             placeholder="Paste your academic text here..."
                         )
-                        import_text_btn = gr.Button("📝 Import Text", variant="primary")
+                        import_text_btn = gr.Button("Import Text", variant="primary")
 
                 # Preview section - fixed (no max_lines None)
                 gr.Markdown("### Text Preview")
                 preview_text = gr.Textbox(
-                    label="📄 Complete Input Text",
+                    label="Complete Input Text",
                     lines=5,
-                    max_lines=14,
+                    max_lines=9,
                     interactive=False,
                     placeholder="Text preview will appear here...",
                     show_copy_button=True
@@ -93,18 +94,18 @@ class AppUI:
                         value="short",
                         label="Summary Length"
                     )
-                    summarize_btn = gr.Button("🚀 Generate Summary", variant="primary")
+                    summarize_btn = gr.Button("Generate Summary", variant="primary")
 
                 # Result section
                 gr.Markdown("### View Result & Download")
                 with gr.Row():
-                    view_result_btn = gr.Button("👁️ View Summary", scale=1)
-                    view_error_btn = gr.Button("⚠️ View Error", scale=1)
-                    export_btn = gr.Button("📥 Download", variant="primary", scale=1)
-                    clear_btn = gr.Button("🔄 Clear Session", scale=1)
+                    view_result_btn = gr.Button("View Summary", scale=1)
+                    view_error_btn = gr.Button("View Error", scale=1)
+                    export_btn = gr.Button("Download", variant="primary", scale=1)
+                    clear_btn = gr.Button("Clear Session", scale=1)
 
                 result_display = gr.Textbox(
-                    label="📝 Result",
+                    label="Result",
                     lines=10,
                     max_lines=25,
                     interactive=False,
@@ -159,7 +160,7 @@ class AppUI:
 
             # History Tab - use HTML rendering for stability
             with gr.Tab("Summary History"):
-                gr.Markdown("### 📚 Summary History")
+                gr.Markdown("### Summary History")
 
                 with gr.Row():
                     search_query = gr.Textbox(
@@ -169,10 +170,10 @@ class AppUI:
                     )
                     
                 with gr.Row():
-                    search_btn = gr.Button("🔍 Search", variant="primary", scale=1)
-                    stats_btn = gr.Button("📊 Statistics", scale=1)
-                    refresh_history_btn = gr.Button("🔄 Refresh History", scale=1) 
-                    clear_history_btn = gr.Button("🗑️ Clear All History", scale=1)
+                    search_btn = gr.Button("Search", variant="primary", scale=1)
+                    stats_btn = gr.Button("Statistics", scale=1)
+                    refresh_history_btn = gr.Button("Refresh History", scale=1) 
+                    clear_history_btn = gr.Button("Clear All History", scale=1)
 
                 # History display uses HTML string (safe and simple)
                 history_display = gr.HTML(value="<p>Click 'Refresh' to load history</p>", label="History Results")
@@ -194,7 +195,7 @@ class AppUI:
                     # build simple HTML for stats
                     return f"""
                     <div style="background-color:#f7f9fb;padding:12px;border-radius:8px;">
-                        <h3>📊 Statistics</h3>
+                        <h3>Statistics</h3>
                         <p><strong>Total Summaries:</strong> {stats.get('total_summaries', 0)}</p>
                         <p><strong>Short Summaries:</strong> {stats.get('short_summaries', 0)}</p>
                         <p><strong>Long Summaries:</strong> {stats.get('long_summaries', 0)}</p>
@@ -206,9 +207,9 @@ class AppUI:
                     result = self.event_handles.on_clear_history_clicked()
 
                     if "Error" in result or "Failed" in result:
-                        return f"<p style='color:red;'>❌ {result}</p>"
+                        return f"<p style='color:red;'>{result}</p>"
                     else:
-                        return f"<p style='color:green;'>✅ {result}</p>"
+                        return f"<p style='color:green;'>{result}</p>"
 
 
                 refresh_history_btn.click(fn=refresh_history, outputs=[history_display])
@@ -217,20 +218,25 @@ class AppUI:
                 clear_history_btn.click(fn=clear_all, outputs=[history_display])
 
             # About Tab
-            with gr.Tab("About us"):
-                gr.Markdown(
-                    """
-                ## About Academic Text Summarizer
+            with gr.Tab("About"):
+                gr.Markdown("""
+                ## About HHL Acasum - Academic Text Summarizer
 
                 ### Features
-                - ✅ Full text display without truncation
-                - ✅ Support for multiple file formats
-                - ✅ Adjustable summary length (short/long)
-                - ✅ Automatic history tracking
-                - ✅ Download and search capabilities
-                - ✅ Organized history view with separate boxes
-                """
-                )
+                -  Full text display without truncation  
+                -  Support for multiple file formats  
+                -  Adjustable summary length (short/long)  
+                -  Automatic history tracking  
+                -  Download and search capabilities  
+                -  Organized history view with separate boxes  
+
+                ## Contact Information
+                - **Developer**: Gia-Huy Do, HHL Team  
+                - **Email**: [huydogiaccac@gmail.com](mailto:huydogiaccac@gmail.com)  
+                - **GitHub**: [github.com/GiaHuyJQK1706/HHLAcasum](https://github.com/GiaHuyJQK1706/HHLAcasum)  
+                - **Facebook**: [facebook.com/hhlteamlab](https://facebook.com/hhlteamlab)
+                """)
+
 
         return interface
 
@@ -267,14 +273,14 @@ class AppUI:
                 </div>
 
                 <div style="margin-bottom:10px;">
-                    <h5 style="margin:0 0 6px 0;">📄 Original Text</h5>
+                    <h5 style="margin:0 0 6px 0;">Original Text</h5>
                     <div style="max-height:220px;overflow:auto;padding:10px;border:1px solid #f0f0f0;border-radius:6px;background:#fafafa;font-family:monospace;font-size:13px;">
                         {original_text}
                     </div>
                 </div>
 
                 <div>
-                    <h5 style="margin:0 0 6px 0;">📝 Generated Summary</h5>
+                    <h5 style="margin:0 0 6px 0;">Generated Summary</h5>
                     <div style="max-height:180px;overflow:auto;padding:10px;border:1px solid #f0f0f0;border-radius:6px;background:#fff;font-family:monospace;font-size:13px;">
                         {summary_text}
                     </div>
@@ -299,6 +305,5 @@ class AppUI:
             share=share,
             server_name=server_name,
             server_port=server_port,
-            show_error=True,
-            favicon_path="./ui/img/favicon-96x96.png"
+            show_error=True
         )

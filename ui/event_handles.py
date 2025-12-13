@@ -43,7 +43,7 @@ class EventHandles:
             result = self.main_controller.import_text_from_file(file_obj.name)
             
             if result["success"]:
-                preview = result["text"][:500] + ("..." if len(result["text"]) > 500 else "")
+                preview = result["text"][:500] + ("..." if len(result["text"]) > 16384 else "")
                 return f"✅ {result['message']}", preview, "📄 Success"
             else:
                 self.error_controller.log_error(result["message"], "file")
@@ -227,12 +227,7 @@ class EventHandles:
             return []
     
     def on_view_stats_clicked_json(self) -> str:
-        """
-        View user statistics as formatted text (for Textbox display)
-        
-        Returns:
-            Formatted statistics string
-        """
+        """ View user statistics as formatted text (for Textbox display) """
         try:
             stats = self.main_controller.get_user_stats()
             
