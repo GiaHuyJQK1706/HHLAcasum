@@ -302,6 +302,7 @@ class AppUI:
         print(f"{'=' * 60}\n")
 
         self.interface.launch(
+            show_api=False,
             share=share,
             server_name=server_name,
             server_port=server_port,

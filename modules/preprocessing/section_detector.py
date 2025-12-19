@@ -231,56 +231,63 @@ class SectionDetector:
     
     def extract_key_sentences(self, text: str, top_k: int = 10) -> List[str]:
         """
-        Trich xuat cau quan trong (key) su dung diem so TF-IDF don gian
-        
-        Args:
-            text: Van ban goc
-            top_k: So cau can trich xuat
-        
-        Returns:
-            Dan sach cac cau quan trong (key sentences) theo dung thu tu xuat hien ban dau
+        Trích xuất câu quan trọng sử dụng TF-IDF
         """
         from collections import Counter
+        import math
         
-        # Tach van ban thanh cac cau
+        # Tách văn bản thành các câu
         sentences = re.split(r'(?<=[.!?])\s+', text)
         sentences = [s.strip() for s in sentences if len(s.strip()) > 20]
         
         if len(sentences) <= top_k:
             return sentences
         
-        # Tinh tan so tu
-        all_words = []
+        # Tính document frequency (số câu chứa mỗi từ)
+        doc_freq = Counter()
         for sentence in sentences:
-            words = [w.lower() for w in re.findall(r'\b\w+\b', sentence)]
-            all_words.extend(words)
+            words = set(w.lower() for w in re.findall(r'\b\w+\b', sentence))
+            for word in words:
+                doc_freq[word] += 1
         
-        word_freq = Counter(all_words)
-        
-        # Tinh diem so cho tung cau
+        # Tính TF-IDF cho từng câu
+        N = len(sentences)  # Tổng số câu
         sentence_scores = []
-        for sentence in sentences:
+        
+        for idx, sentence in enumerate(sentences):
             words = [w.lower() for w in re.findall(r'\b\w+\b', sentence)]
             if not words:
                 continue
             
-            # TF score (chuan hoa theo do dai cau)
-            score = sum(word_freq[w] for w in words) / len(words)
+            # Tính TF cho từng từ trong câu
+            tf = Counter(words)
             
-            # Tang diem cho cau co so/thong ke
-            if re.search(r'\d+', sentence):
-                score *= 1.2
+            # Tính TF-IDF score cho câu
+            tfidf_score = 0
+            for word in set(words):
+                # TF: tần suất từ trong câu
+                term_freq = tf[word] / len(words)
+                
+                # IDF: log(N / df)
+                idf = math.log(N / doc_freq[word]) if doc_freq[word] > 0 else 0
+                
+                # TF-IDF
+                tfidf_score += term_freq * idf
             
-            # Tang diem cho cau o dau van ban (co kha nang quan trong)
-            position_boost = 1.0 - (sentences.index(sentence) / len(sentences)) * 0.3
-            score *= position_boost
+            # Chuẩn hóa theo số từ unique
+            tfidf_score /= len(set(words))
             
-            sentence_scores.append((score, sentence, sentences.index(sentence)))
+            # Các yếu tố bổ trợ
+            if re.search(r'\d+', sentence): # Nếu câu có số, tăng điểm
+                tfidf_score *= 1.2
+            
+            position_boost = 1.0 - (idx / N) * 0.3 # Câu đầu có điểm cao hơn
+            tfidf_score *= position_boost
+            
+            sentence_scores.append((tfidf_score, sentence, idx))
         
-        # Lay top-k cau
+        # Lấy top-k câu
         top_sentences = sorted(sentence_scores, reverse=True)[:top_k]
-        
-        # Sap xep theo thu tu ban dau
         top_sentences.sort(key=lambda x: x[2])
         
         return [s[1] for s in top_sentences]
