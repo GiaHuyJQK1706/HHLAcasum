@@ -1,57 +1,59 @@
 """
 @ file modules/preprocessing/section_detector.py
 @ Copyright (C) 2025 by Gia-Huy Do & HHL Team
-@ Advanced section detection for structured documents
+@ v0.99: Fix correctly detects all sections without over-filtering
 """
 import re
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 from dataclasses import dataclass
 
 
 @dataclass
 class Section:
-    """Dai dien mot phan muc trong van ban"""
+    """Represents a section in the document"""
     title: str
     content: str
     level: int
     section_number: Optional[str] = None
     start_pos: int = 0
     end_pos: int = 0
-    section_type: str = "content"  # content, introduction, conclusion, etc.
+    section_type: str = "content"
 
 
 class SectionDetector:
-    """Phat hien phan muc van ban nang cao"""
+    """Enhanced section detection - FINAL VERSION"""
     
     def __init__(self):
-        # Cac mau de phat hien tieu de phan muc
+        # Patterns ordered by priority (most specific first)
         self.patterns = [
-            # Numbered sections (1., 1.1, 1.1.1)
-            (r'^(\d+(?:\.\d+)*)\.\s+(.+?)$', 'numbered'),
+            # Subsections with multiple dots (2.1, 2.1.1, etc.)
+            (r'^(\d+\.\d+(?:\.\d+)*)\s+(.+)$', 'numbered_sub'),
             
-            # Named sections (Introduction, Methods, etc.)
-            (r'^([A-Z][A-Za-z\s]{2,40})\s*$', 'named'),
+            # Main numbered sections (1., 2., 3.)
+            (r'^(\d+)\.\s+(.+)$', 'numbered'),
             
-            # ALL CAPS headings
-            (r'^([A-Z\s]{3,40})$', 'caps'),
+            # Roman numerals (I., II., III.)
+            (r'^([IVX]+)\.\s+(.+)$', 'roman'),
             
-            # Markdown-style headers (# Header)
-            (r'^(#{1,6})\s+(.+?)$', 'markdown'),
+            # Markdown headers (## Header)
+            (r'^(#{1,6})\s+(.+)$', 'markdown'),
+            
+            # ALL CAPS HEADERS
+            (r'^([A-Z][A-Z\s]{2,50})$', 'caps'),
         ]
         
-        # Known section types for classification
+        # Known section keywords
         self.section_keywords = {
-            'introduction': ['introduction', 'overview', 'background', 'motivation'],
-            'methods': ['methods', 'methodology', 'approach', 'implementation'],
-            'results': ['results', 'findings', 'evaluation', 'experiments'],
-            'discussion': ['discussion', 'analysis', 'interpretation'],
-            'conclusion': ['conclusion', 'summary', 'future work', 'conclusions'],
+            'introduction': ['introduction', 'overview', 'background', 'motivation', 'abstract', 'preface'],
+            'methods': ['methods', 'methodology', 'approach', 'implementation', 'design', 'architecture'],
+            'results': ['results', 'findings', 'evaluation', 'experiments', 'performance', 'benchmarking'],
+            'discussion': ['discussion', 'analysis', 'interpretation', 'challenges'],
+            'conclusion': ['conclusion', 'summary', 'future', 'conclusions', 'final', 'closing'],
         }
     
     def detect_sections(self, text: str) -> List[Section]:
         """
-        Phat hien cac phan muc trong van ban
-        Tra ve danh sach cac doi tuong Section kem theo thong tin chi tiet (metadata)
+        Detect all sections - FIXED to not over-filter
         """
         if not text or not text.strip():
             return []
@@ -60,21 +62,27 @@ class SectionDetector:
         sections = []
         current_section = None
         
+        print(f"\n🔍 Detecting sections in document ({len(lines)} lines)...")
+        
         for i, line in enumerate(lines):
             line_stripped = line.strip()
             
+            # Skip empty lines
             if not line_stripped:
                 continue
             
-            # Thu phan tieu de phan muc
-            section_info = self._match_section_header(line_stripped, i)
+            # Try to match as section header
+            section_info = self._match_section_header(line_stripped, i, lines)
             
             if section_info:
-                # Luu phan muc truoc do
+                # Debug print
+                print(f"   ✓ Line {i}: Found section '{section_info['title']}' (level {section_info['level']})")
+                
+                # Save previous section
                 if current_section and current_section.content.strip():
                     sections.append(current_section)
                 
-                # Bat dau phan muc moi
+                # Start new section
                 current_section = Section(
                     title=section_info['title'],
                     content="",
@@ -84,82 +92,184 @@ class SectionDetector:
                     section_type=self._classify_section_type(section_info['title'])
                 )
             else:
-                # Them vao noi dung phan muc hien tai
+                # Add content to current section
                 if current_section:
                     current_section.content += line_stripped + " "
                 else:
-                    # Chua co phan muc nao, tao phan muc gioi thieu mac dinh
-                    current_section = Section(
-                        title="Introduction",
-                        content=line_stripped + " ",
-                        level=0,
-                        start_pos=i,
-                        section_type="introduction"
-                    )
+                    # First content before any header
+                    if len(line_stripped) > 20:
+                        current_section = Section(
+                            title="Document Content",
+                            content=line_stripped + " ",
+                            level=0,
+                            start_pos=i,
+                            section_type="content"
+                        )
         
-        # Them phan muc cuoi cung
+        # Add last section
         if current_section and current_section.content.strip():
             sections.append(current_section)
         
-        # Xu ly hau qua: gop cac phan muc rat nho
-        sections = self._merge_small_sections(sections)
+        print(f"   → Initial detection: {len(sections)} sections")
         
-        return sections
+        # CRITICAL: Only remove sections that are TRULY too small
+        # Don't be too aggressive with filtering
+        valid_sections = []
+        for section in sections:
+            word_count = len(section.content.split())
+            # Very lenient threshold - only remove if really empty
+            if word_count >= 5:  # Changed from 10 to 5
+                valid_sections.append(section)
+            else:
+                print(f"   ⚠ Removed too-small section: '{section.title}' ({word_count} words)")
+        
+        print(f"   → After filtering: {len(valid_sections)} sections")
+        
+        # IMPORTANT: Don't treat as unstructured if we found multiple sections
+        # Only return single "Document" section if we truly found NOTHING
+        if len(valid_sections) == 0:
+            print(f"   → No valid sections, treating as plain document")
+            return [Section(
+                title="Document",
+                content=text,
+                level=0,
+                section_type="content"
+            )]
+        
+        # If we found sections, return them!
+        print(f"   ✅ Final: {len(valid_sections)} sections detected\n")
+        return valid_sections
     
-    def _match_section_header(self, line: str, line_num: int) -> Optional[Dict]:
-        """Thu phan tieu de phan muc"""
+    def _match_section_header(self, line: str, line_num: int, all_lines: List[str]) -> Optional[Dict]:
+        """
+        Match section header - SIMPLIFIED and more lenient
+        """
         
+        # Skip very long lines (clearly not headers)
+        if len(line) > 200:
+            return None
+        
+        # Try each pattern
         for pattern, pattern_type in self.patterns:
             match = re.match(pattern, line)
             
-            if match:
-                if pattern_type == 'numbered':
-                    section_num = match.group(1)
-                    title = match.group(2)
-                    level = len(section_num.split('.'))
-                    return {
-                        'title': title,
-                        'number': section_num,
-                        'level': level,
-                        'type': pattern_type
-                    }
+            if not match:
+                continue
+            
+            # NUMBERED SUBSECTION (1.1, 2.3, 3.2.1, etc.)
+            if pattern_type == 'numbered_sub':
+                section_num = match.group(1)
+                title = match.group(2).strip()
                 
-                elif pattern_type == 'named':
-                    title = match.group(1).strip()
-                    # Only consider as header if it's short and title-like
-                    if len(title.split()) <= 8 and title[0].isupper():
-                        return {
-                            'title': title,
-                            'number': None,
-                            'level': 1,
-                            'type': pattern_type
-                        }
+                # Basic validation
+                if len(title.split()) > 20:  # Title too long
+                    continue
                 
-                elif pattern_type == 'caps':
-                    title = match.group(1).strip()
-                    if len(title.split()) <= 6:
-                        return {
-                            'title': title.title(),  # Convert to Title Case
-                            'number': None,
-                            'level': 1,
-                            'type': pattern_type
-                        }
+                # Must have SOME content after (very lenient)
+                if not self._has_minimal_content_after(line_num, all_lines):
+                    continue
                 
-                elif pattern_type == 'markdown':
-                    hashes = match.group(1)
-                    title = match.group(2)
-                    level = len(hashes)
-                    return {
-                        'title': title,
-                        'number': None,
-                        'level': level,
-                        'type': pattern_type
-                    }
+                level = len(section_num.split('.'))
+                return {
+                    'title': title,
+                    'number': section_num,
+                    'level': level,
+                    'type': pattern_type
+                }
+            
+            # SIMPLE NUMBERED SECTION (1., 2., 3., etc.)
+            elif pattern_type == 'numbered':
+                section_num = match.group(1)
+                title = match.group(2).strip()
+                
+                # Basic validation
+                if len(title.split()) > 20:
+                    continue
+                
+                # Must have content after
+                if not self._has_minimal_content_after(line_num, all_lines):
+                    continue
+                
+                return {
+                    'title': title,
+                    'number': section_num,
+                    'level': 1,
+                    'type': pattern_type
+                }
+            
+            # ROMAN NUMERALS
+            elif pattern_type == 'roman':
+                section_num = match.group(1)
+                title = match.group(2).strip()
+                
+                if len(title.split()) > 20:
+                    continue
+                
+                if not self._has_minimal_content_after(line_num, all_lines):
+                    continue
+                
+                return {
+                    'title': title,
+                    'number': section_num,
+                    'level': 1,
+                    'type': pattern_type
+                }
+            
+            # MARKDOWN HEADERS
+            elif pattern_type == 'markdown':
+                hashes = match.group(1)
+                title = match.group(2).strip()
+                
+                if len(title.split()) > 20:
+                    continue
+                
+                level = len(hashes)
+                return {
+                    'title': title,
+                    'number': None,
+                    'level': level,
+                    'type': pattern_type
+                }
+            
+            # ALL CAPS
+            elif pattern_type == 'caps':
+                title = match.group(1).strip()
+                word_count = len(title.split())
+                
+                # Must be reasonable length
+                if not (2 <= word_count <= 10):
+                    continue
+                
+                if not self._has_minimal_content_after(line_num, all_lines):
+                    continue
+                
+                return {
+                    'title': title.title(),
+                    'number': None,
+                    'level': 1,
+                    'type': pattern_type
+                }
         
         return None
     
+    def _has_minimal_content_after(self, line_num: int, lines: List[str]) -> bool:
+        """
+        VERY LENIENT check - just verify there's SOMETHING after this line
+        This prevents treating the last line as a header
+        """
+        # Look at next few lines
+        for i in range(line_num + 1, min(line_num + 3, len(lines))):
+            line = lines[i].strip()
+            
+            # If we find any non-empty line with reasonable length, it's valid
+            if line and len(line) > 10:
+                return True
+        
+        # No content found
+        return False
+    
     def _classify_section_type(self, title: str) -> str:
-        """Phan loai phan muc dua tren tu khoa trong tieu de"""
+        """Classify section based on title"""
         title_lower = title.lower()
         
         for section_type, keywords in self.section_keywords.items():
@@ -167,30 +277,6 @@ class SectionDetector:
                 return section_type
         
         return 'content'
-    
-    def _merge_small_sections(self, sections: List[Section], 
-                              min_length: int = 100) -> List[Section]:
-        """Gop cac phan muc qua nho"""
-        if not sections:
-            return sections
-        
-        merged = []
-        i = 0
-        
-        while i < len(sections):
-            current = sections[i]
-            
-            # Neu phan muc hien tai qua ngan, gop voi phan muc tiep theo
-            if len(current.content) < min_length and i < len(sections) - 1:
-                # Gop voi phan muc tiep theo
-                next_section = sections[i + 1]
-                next_section.content = current.content + " " + next_section.content
-                i += 1  # Bo qua phan muc hien tai
-            else:
-                merged.append(current)
-                i += 1
-        
-        return merged
     
     def get_document_structure(self, sections: List[Section]) -> Dict:
         """Analyze document structure"""
@@ -206,7 +292,7 @@ class SectionDetector:
         if not sections:
             return structure
         
-        # Dem loai phan muc
+        # Count section types
         for section in sections:
             structure['section_types'][section.section_type] = \
                 structure['section_types'].get(section.section_type, 0) + 1
@@ -216,77 +302,78 @@ class SectionDetector:
             elif section.section_type == 'conclusion':
                 structure['has_conclusion'] = True
         
-        # Tinh do dai trung binh phan muc
+        # Calculate average section length
         total_length = sum(len(s.content) for s in sections)
-        structure['average_section_length'] = total_length // len(sections)
+        structure['average_section_length'] = total_length // len(sections) if sections else 0
         
-        # Xac dinh xem co cau truc tot (co gioi thieu + ket luan + 2+ phan muc)
-        structure['is_well_structured'] = (
-            structure['has_introduction'] and 
-            structure['has_conclusion'] and 
-            len(sections) >= 3
-        )
+        # FIXED: More lenient check for well-structured
+        # Just need 2+ sections (not 3)
+        structure['is_well_structured'] = len(sections) >= 2
         
         return structure
     
     def extract_key_sentences(self, text: str, top_k: int = 10) -> List[str]:
-        """
-        Trích xuất câu quan trọng sử dụng TF-IDF
-        """
+        """Extract key sentences using TF-IDF"""
         from collections import Counter
         import math
         
-        # Tách văn bản thành các câu
+        # Split into sentences
         sentences = re.split(r'(?<=[.!?])\s+', text)
         sentences = [s.strip() for s in sentences if len(s.strip()) > 20]
         
         if len(sentences) <= top_k:
             return sentences
         
-        # Tính document frequency (số câu chứa mỗi từ)
+        # Calculate document frequency
         doc_freq = Counter()
         for sentence in sentences:
             words = set(w.lower() for w in re.findall(r'\b\w+\b', sentence))
             for word in words:
                 doc_freq[word] += 1
         
-        # Tính TF-IDF cho từng câu
-        N = len(sentences)  # Tổng số câu
+        # Stopwords
+        stopwords = {
+            'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 
+            'of', 'with', 'by', 'from', 'as', 'is', 'are', 'was', 'were', 'been',
+            'be', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 
+            'should', 'can', 'could', 'may', 'might', 'must', 'that', 'this', 
+            'these', 'those', 'which', 'what', 'who', 'when', 'where', 'why', 'how'
+        }
+        
+        # Score sentences
+        N = len(sentences)
         sentence_scores = []
         
         for idx, sentence in enumerate(sentences):
-            words = [w.lower() for w in re.findall(r'\b\w+\b', sentence)]
+            words = [w.lower() for w in re.findall(r'\b\w+\b', sentence) 
+                     if w.lower() not in stopwords]
+            
             if not words:
                 continue
             
-            # Tính TF cho từng từ trong câu
+            # TF-IDF calculation
             tf = Counter(words)
-            
-            # Tính TF-IDF score cho câu
             tfidf_score = 0
+            
             for word in set(words):
-                # TF: tần suất từ trong câu
                 term_freq = tf[word] / len(words)
-                
-                # IDF: log(N / df)
                 idf = math.log(N / doc_freq[word]) if doc_freq[word] > 0 else 0
-                
-                # TF-IDF
                 tfidf_score += term_freq * idf
             
-            # Chuẩn hóa theo số từ unique
-            tfidf_score /= len(set(words))
+            # Normalize
+            tfidf_score /= len(set(words)) if set(words) else 1
             
-            # Các yếu tố bổ trợ
-            if re.search(r'\d+', sentence): # Nếu câu có số, tăng điểm
-                tfidf_score *= 1.2
-            
-            position_boost = 1.0 - (idx / N) * 0.3 # Câu đầu có điểm cao hơn
+            # Position boost
+            position_boost = 1.0 - (idx / N) * 0.2
             tfidf_score *= position_boost
+            
+            # Technical content boost
+            if re.search(r'\d+', sentence):
+                tfidf_score *= 1.15
             
             sentence_scores.append((tfidf_score, sentence, idx))
         
-        # Lấy top-k câu
+        # Get top-k, maintain order
         top_sentences = sorted(sentence_scores, reverse=True)[:top_k]
         top_sentences.sort(key=lambda x: x[2])
         
