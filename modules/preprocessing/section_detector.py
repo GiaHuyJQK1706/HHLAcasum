@@ -21,7 +21,6 @@ class Section:
 
 
 class SectionDetector:
-    """Enhanced section detection - FINAL VERSION"""
     
     def __init__(self):
         # Patterns ordered by priority (most specific first)

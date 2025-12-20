@@ -1,7 +1,7 @@
 """
 @ file modules/summarizer/summarizer.py
 @ Copyright (C) 2025 by Gia-Huy Do & HHL Team
-@ v1.0: Fixed prompt leakage and generation parameters
+@ v1.0: Fixed prompt leakage, generation parameters, and section headers
 """
 import torch
 import re
@@ -15,7 +15,6 @@ from modules.summarizer.summary_validator import SummaryValidator
 
 
 class Summarizer:
-    """Enhanced T5 summarizer with fixed issues"""
     
     def __init__(self, config: ModuleConfigs = None):
         self.config = config or ModuleConfigs()
@@ -86,7 +85,7 @@ class Summarizer:
             print(f"Warning: Failed to unload model: {str(e)}")
     
     # ================================================================
-    # MAIN SUMMARIZATION
+    # HAM TOM TAT CHINH
     # ================================================================
     
     def summarize(self, text: str, summary_length: str = "short") -> str:
@@ -103,14 +102,14 @@ class Summarizer:
             
             print(f"\n📝 Generating {summary_length} summary...")
             print(f"   Target: {config['min_length']}-{config['max_length']} tokens")
+            print(f"   Strategy: Hybrid (Extractive + Abstractive)")
             
-            # Strategy selection based on text length and structure
+            # Chien luoc tom tat co cau truc
             if self.config.USE_STRUCTURE_AWARE and len(text) > 2000:
                 sections = self.section_detector.detect_sections(text)
                 structure = self.section_detector.get_document_structure(sections)
                 
-                # Check if we actually detected multiple sections
-                # (detector returns single "Document" section if no structure found)
+                # Check neu van ban co cau truc thuc su
                 has_structure = (
                     len(sections) >= 2 and 
                     not (len(sections) == 1 and sections[0].title == "Document")
@@ -125,23 +124,27 @@ class Summarizer:
                     print(f"   ✅ Structured document: {len(sections)} sections detected")
                     print(f"      Sections: {titles_str}")
                     
-                    # Use hierarchical strategy
-                    print(f"   📋 Strategy: Hierarchical (content-focused, {len(sections)} sections)")
+                    # Use hierarchical HYBRID strategy
+                    print(f"   📋 Mode: Hierarchical Hybrid")
+                    print(f"      → Extract key sentences per section")
+                    print(f"      → Combine and generate abstractive summary")
                     summary = self._hierarchical_content_only(sections, config)
                 else:
-                    # No clear structure
+                    # No clear structure - use standard HYBRID
                     print(f"   📄 Document: No clear section structure")
-                    print(f"   📋 Strategy: Standard generation")
+                    print(f"   📋 Mode: Standard Hybrid")
+                    print(f"      → Extract key sentences from full text")
+                    print(f"      → Generate abstractive summary")
                     summary = self._standard_generation(text, config)
             else:
-                print(f"   📋 Strategy: Standard generation")
+                print(f"   📋 Mode: Standard Hybrid (short text)")
                 summary = self._standard_generation(text, config)
             
-            # Critical post-processing
+            # Hau xu ly ket qua de loai bo cac thanh phan khong can thiet
             summary = self._remove_all_section_markers(summary)
             summary = self._ensure_clean_output(summary)
             
-            # Quality validation
+            # Danh gia va sua loi neu can
             if self.config.ENABLE_QUALITY_VALIDATION:
                 summary = self._validate_and_fix(summary, config)
             
@@ -159,72 +162,144 @@ class Summarizer:
             raise Exception(f"Summarization failed: {str(e)}")
     
     # ================================================================
-    # STRATEGY 1: HIERARCHICAL (CONTENT ONLY)
+    # STRATEGY 1: HIERARCHICAL 
     # ================================================================
     
     def _hierarchical_content_only(self, sections: List[Section], config: Dict) -> str:
         """
-        Hierarchical approach focusing only on content, ignoring titles
+        Tiep can theo phan cap (Hybrid): Extract tu moi phan, sau do moi tao noi dung. 
+        Phuong phap nay dam bao chung ta nam bat duoc cac chi tiet quan trong trong khi van duy tri duoc luong thong tin tu nhien.
         """
-        print(f"   Phase 1/2: Extracting content from sections...")
+        print(f"   Phase 1/3: Extracting key information from each section...")
         
-        # Extract content from each section (ignore titles)
+        # Extract content from each section
         section_contents = []
         for i, section in enumerate(sections, 1):
             if len(section.content.strip()) < 50:
                 continue
             
-            print(f"      [{i}/{len(sections)}] Processing section content")
+            print(f"      [{i}/{len(sections)}] {section.title}: {len(section.content)} chars")
             
-            # Extract key sentences from section content only
+            # HYBRID: Extract key sentences from each section
+            # Viec nay giup giam kich thuoc dau vao cho viec tom tat sau do ma van giu nguyen thong tin quan trong
+            num_sentences = 5 if config['summary_type'] == 'long' else 3
+            
             key_sentences = self.section_detector.extract_key_sentences(
                 section.content,
-                top_k=5 if config['summary_type'] == 'long' else 3
+                top_k=num_sentences
             )
             
             section_contents.append(' '.join(key_sentences))
         
-        print(f"   Phase 2/2: Generating unified summary...")
+        print(f"   Phase 2/3: Combining extracted content...")
         
-        # Combine all content
+        # Ket hop noi dung da extract
         combined_content = ' '.join(section_contents)
+        original_len = sum(len(s.content) for s in sections if len(s.content.strip()) >= 50)
         
-        # Generate summary from pure content (no section info)
+        print(f"      Reduced from {original_len} to {len(combined_content)} chars")
+        
+        # Generate abstractive summary from extracted content
+        print(f"   Phase 3/3: Generating abstractive summary...")
+        
         summary = self._generate_clean_summary(combined_content, config)
         
         return summary
     
     # ================================================================
-    # STRATEGY 2: STANDARD GENERATION
+    # STRATEGY 2: STANDARD GENERATION (HYBRID)
     # ================================================================
     
     def _standard_generation(self, text: str, config: Dict) -> str:
-        """Standard summarization with smart chunking if needed"""
+        """
+        Tom tat tieu chuan voi phuong phap HYBRID (extractive + abstractive)
+        Dam bao chat luong tom tat voi cac van ban bat ky
+        """
         
-        if len(text) > config['input_max_chars']:
-            print(f"   Input: {len(text)} chars → Smart chunking")
+        # Very long text - need chunking with extraction
+        if len(text) > config['input_max_chars'] * 2:
+            print(f"   Input: {len(text)} chars → Multi-chunk Hybrid")
+            return self._multi_chunk_hybrid(text, config)
+        
+        # Long text - single extraction + generation
+        elif len(text) > config['input_max_chars']:
+            print(f"   Input: {len(text)} chars → Extractive-Abstractive Hybrid")
             
-            chunks = self._split_smart_chunks(text, config['input_max_chars'])
-            print(f"   Chunks: {len(chunks)}")
+            # STEP 1: Extract key sentences (reduce input size)
+            num_sentences = 20 if config['summary_type'] == 'long' else 12
+            print(f"      Phase 1: Extracting {num_sentences} key sentences...")
             
-            # Summarize each chunk
-            chunk_summaries = []
-            for i, chunk in enumerate(chunks, 1):
-                print(f"      Chunk {i}/{len(chunks)}")
-                summary = self._generate_clean_summary(chunk, config)
-                chunk_summaries.append(summary)
+            key_sentences = self.section_detector.extract_key_sentences(text, top_k=num_sentences)
+            extracted_text = ' '.join(key_sentences)
             
-            # Merge if multiple chunks
-            if len(chunk_summaries) > 1:
-                merged = ' '.join(chunk_summaries)
-                # Re-summarize to get final length
-                final = self._generate_clean_summary(merged, config)
-                return final
-            else:
-                return chunk_summaries[0]
+            print(f"      Reduced from {len(text)} to {len(extracted_text)} chars")
+            
+            # STEP 2: Abstractive summarization on extracted content
+            print(f"      Phase 2: Generating abstractive summary...")
+            summary = self._generate_clean_summary(extracted_text, config)
+            
+            return summary
+        
+        # Medium text - light extraction for quality
+        elif len(text) > 4096:
+            print(f"   Input: {len(text)} chars → Light extraction + generation")
+            
+            # Extract top sentences to focus on key content
+            num_sentences = 15 if config['summary_type'] == 'long' else 10
+            key_sentences = self.section_detector.extract_key_sentences(text, top_k=num_sentences)
+            extracted_text = ' '.join(key_sentences)
+            
+            print(f"      Focused on {len(key_sentences)} key sentences")
+            return self._generate_clean_summary(extracted_text, config)
+        
+        # Short text - direct generation
         else:
-            print(f"   Input: {len(text)} chars")
+            print(f"   Input: {len(text)} chars → Direct generation")
             return self._generate_clean_summary(text, config)
+    
+    # Ham nay chi xu ly cho truong hop van ban rat dai
+    def _multi_chunk_hybrid(self, text: str, config: Dict) -> str:
+        """
+        Handle very long texts with chunking + hybrid approach
+        Each chunk: extract key sentences -> summarize -> merge
+        """
+        print(f"      Strategy: Multi-chunk with extraction")
+        
+        # Split into chunks
+        chunks = self._split_smart_chunks(text, config['input_max_chars'])
+        print(f"      Split into {len(chunks)} chunks")
+        
+        # Process each chunk with extraction
+        chunk_summaries = []
+        for i, chunk in enumerate(chunks, 1):
+            print(f"         Chunk {i}/{len(chunks)}: {len(chunk)} chars")
+            
+            # Extract key sentences from chunk
+            num_sentences = 10 if config['summary_type'] == 'long' else 6
+            key_sentences = self.section_detector.extract_key_sentences(chunk, top_k=num_sentences)
+            extracted = ' '.join(key_sentences)
+            
+            # Generate summary from extracted content
+            summary = self._generate_clean_summary(extracted, config)
+            chunk_summaries.append(summary)
+        
+        # Merge all chunk summaries
+        if len(chunk_summaries) > 1:
+            print(f"      Merging {len(chunk_summaries)} chunk summaries...")
+            
+            # Combine all summaries
+            merged = ' '.join(chunk_summaries)
+            
+            # Extract key sentences from merged summaries
+            num_final = 15 if config['summary_type'] == 'long' else 10
+            final_key = self.section_detector.extract_key_sentences(merged, top_k=num_final)
+            final_extracted = ' '.join(final_key)
+            
+            # Final generation
+            final_summary = self._generate_clean_summary(final_extracted, config)
+            return final_summary
+        else:
+            return chunk_summaries[0]
     
     # ================================================================
     # CORE GENERATION (FIXED)
@@ -518,9 +593,10 @@ class Summarizer:
         word_count = len(summary.split())
         char_count = len(summary)
         
-        print(f"✅ Summary completed in {total_time:.2f}s:")
-        print(f"   {char_count} chars | {word_count} words")
-        print(f"   Clean output: ✓ No sections, ✓ No prompts, ✓ Complete sentences")
+        print(f"\n✅ Summary completed in {total_time:.2f}s:")
+        print(f"   📊 Output: {char_count} chars | {word_count} words")
+        print(f"   ✨ Quality: Hybrid approach (Extractive + Abstractive)")
+        print(f"   ✓ Clean: No sections, No prompts, Complete sentences")
     
     def _reset_stats(self):
         """Reset statistics"""
