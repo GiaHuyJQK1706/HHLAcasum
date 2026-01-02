@@ -1,21 +1,14 @@
 """
 @ file model_setup.py: Model Setup Helper - Kiểm tra và setup model cục bộ
 @ Copyright (C) 2025 by HHL Team
+@ Update: Change model
 """
 import os
 from pathlib import Path
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
 
-def check_local_model(model_path: str = "./models/hhlai_academic_textsum") -> bool:
-    """
-    Kiểm tra xem model cục bộ có tồn tại và hoàn chỉnh không
-    Args:
-        model_path: Đường dẫn đến thư mục model
-        
-    Returns:
-        True nếu model có sẵn, False nếu không
-    """
+def check_local_model(model_path: str = "./models/hhlai_acasum_t5_base") -> bool:
     model_dir = Path(model_path)
     
     if not model_dir.exists():
@@ -52,14 +45,7 @@ def check_local_model(model_path: str = "./models/hhlai_academic_textsum") -> bo
         return False
 
 
-def setup_local_model(model_path: str = "./models/hhlai_academic_textsum") -> bool:
-    """
-    Setup model cục bộ - Tạo thư mục nếu không tồn tại  
-    Args:
-        model_path: Đường dẫn đến thư mục model     
-    Returns:
-        True nếu setup thành công
-    """
+def setup_local_model(model_path: str = "./models/hhlai_acasum_t5_base") -> bool:
     model_dir = Path(model_path)
     
     # Tạo thư mục nếu không tồn tại
@@ -70,19 +56,10 @@ def setup_local_model(model_path: str = "./models/hhlai_academic_textsum") -> bo
 
 
 def download_and_setup_model(
-    model_name: str = "hhlai/hhlai_academic_textsum",
-    model_path: str = "./models/hhlai_academic_textsum",
+    model_name: str = "hhlai/hhlai_acasum_t5_base",
+    model_path: str = "./models/hhlai_acasum_t5_base",
     force_download: bool = False
 ) -> bool:
-    """
-    Download model từ HuggingFace và lưu cục bộ  
-    Args:
-        model_name: Model name từ HuggingFace
-        model_path: Đường dẫn lưu cục bộ
-        force_download: Force re-download nếu đã tồn tại   
-    Returns:
-        True nếu download thành công
-    """
     model_dir = Path(model_path)
     
     # Kiểm tra xem model đã tồn tại chưa
@@ -118,14 +95,7 @@ def download_and_setup_model(
         return False
 
 
-def verify_model_files(model_path: str = "./models/hhlai_academic_textsum") -> dict:
-    """
-    Kiểm tra và liệt kê các file trong thư mục model  
-    Args:
-        model_path: Đường dẫn đến thư mục model     
-    Returns:
-        Dictionary với thông tin files
-    """
+def verify_model_files(model_path: str = "./models/hhlai_acasum_t5_base") -> dict:
     model_dir = Path(model_path)
     
     info = {
@@ -155,7 +125,7 @@ def verify_model_files(model_path: str = "./models/hhlai_academic_textsum") -> d
     return info
 
 
-def print_model_info(model_path: str = "./models/hhlai_academic_textsum"):
+def print_model_info(model_path: str = "./models/hhlai_acasum_t5_base"):
     """
     In thông tin chi tiết về model
     Args:
@@ -181,10 +151,10 @@ def print_model_info(model_path: str = "./models/hhlai_academic_textsum"):
 
 if __name__ == "__main__":
     # Test script - chạy để kiểm tra model
-    
-    MODEL_PATH = "./models/hhlai_academic_textsum"
-    MODEL_NAME = "hhlai/hhlai_academic_textsum"
-    
+
+    MODEL_PATH = "./models/hhlai_acasum_t5_base"
+    MODEL_NAME = "hhlai/hhlai_acasum_t5_base"
+
     print("\n🔍 Checking model setup...\n")
     
     # 1. Kiểm tra model cục bộ

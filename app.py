@@ -1,6 +1,7 @@
 """
 @ app.py: Main application entry point for Academic Text Summarizer
 @ Copyright (C) 2025 by Gia-Huy Do & HHL Team
+@ Update: Change model
 """
 import sys
 import os
@@ -21,8 +22,8 @@ def check_and_setup_models():
     try:
         from model_setup import check_local_model, download_and_setup_model
         
-        MODEL_PATH = "./models/hhlai_academic_textsum"
-        MODEL_NAME = "hhlai/hhlai_academic_textsum"
+        MODEL_PATH = "./models/hhlai_acasum_t5_base"
+        MODEL_NAME = "hhlai/hhlai_acasum_t5_base"
         
         print("\n" + "="*60)
         print("🔍 Checking Model Setup...")

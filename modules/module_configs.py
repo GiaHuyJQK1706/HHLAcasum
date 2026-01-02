@@ -1,6 +1,7 @@
 """
 @ file modules/module_configs.py
 @ Copyright (C) 2025 by Gia-Huy Do & HHL Team
+@ Update: Change model
 """
 from dataclasses import dataclass
 from typing import Dict, Any
@@ -13,8 +14,8 @@ class ModuleConfigs:
     # MODEL CONFIGURATION
     # ============================================================
     
-    MODEL_NAME: str = "hhlai/hhlai_academic_textsum"
-    MODEL_LOCAL_PATH: str = "./models/hhlai_academic_textsum"
+    MODEL_NAME: str = "hhlai/hhlai_acasum_t5_base"
+    MODEL_LOCAL_PATH: str = "./models/hhlai_acasum_t5_base"
     DEVICE: str = "cpu"
     USE_LOCAL_MODEL: bool = True
     
