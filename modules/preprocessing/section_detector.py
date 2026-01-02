@@ -1,7 +1,7 @@
 """
 @ file modules/preprocessing/section_detector.py
 @ Copyright (C) 2025 by Gia-Huy Do & HHL Team
-@ v0.99: Fix correctly detects all sections without over-filtering
+@ v1: Fixed: extract key sentences (TF-IDF -> PyTextRank) 
 """
 import re
 from typing import List, Dict, Optional
@@ -305,76 +305,82 @@ class SectionDetector:
         total_length = sum(len(s.content) for s in sections)
         structure['average_section_length'] = total_length // len(sections) if sections else 0
         
-        # FIXED: More lenient check for well-structured
-        # Just need 2+ sections (not 3)
-        structure['is_well_structured'] = len(sections) >= 2
-        
+        structure['is_well_structured'] = len(sections) >= 2     
         return structure
     
     def extract_key_sentences(self, text: str, top_k: int = 10) -> List[str]:
-        """Extract key sentences using TF-IDF"""
-        from collections import Counter
-        import math
-        
-        # Split into sentences
-        sentences = re.split(r'(?<=[.!?])\s+', text)
-        sentences = [s.strip() for s in sentences if len(s.strip()) > 20]
-        
-        if len(sentences) <= top_k:
-            return sentences
-        
-        # Calculate document frequency
-        doc_freq = Counter()
-        for sentence in sentences:
-            words = set(w.lower() for w in re.findall(r'\b\w+\b', sentence))
-            for word in words:
-                doc_freq[word] += 1
-        
-        # Stopwords
-        stopwords = {
-            'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 
-            'of', 'with', 'by', 'from', 'as', 'is', 'are', 'was', 'were', 'been',
-            'be', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 
-            'should', 'can', 'could', 'may', 'might', 'must', 'that', 'this', 
-            'these', 'those', 'which', 'what', 'who', 'when', 'where', 'why', 'how'
-        }
-        
-        # Score sentences
-        N = len(sentences)
-        sentence_scores = []
-        
-        for idx, sentence in enumerate(sentences):
-            words = [w.lower() for w in re.findall(r'\b\w+\b', sentence) 
-                     if w.lower() not in stopwords]
+        try:
+            import spacy
+            import pytextrank
             
-            if not words:
-                continue
+            # Load spacy model with pytextrank
+            try:
+                nlp = spacy.load("en_core_web_sm")
+            except OSError:
+                print("⚠️ Downloading spacy model...")
+                import subprocess
+                subprocess.run(["python", "-m", "spacy", "download", "en_core_web_sm"])
+                nlp = spacy.load("en_core_web_sm")
             
-            # TF-IDF calculation
-            tf = Counter(words)
-            tfidf_score = 0
+            # Add PyTextRank to the pipeline
+            if "textrank" not in nlp.pipe_names:
+                nlp.add_pipe("textrank")
             
-            for word in set(words):
-                term_freq = tf[word] / len(words)
-                idf = math.log(N / doc_freq[word]) if doc_freq[word] > 0 else 0
-                tfidf_score += term_freq * idf
+            # Split into sentences for validation
+            sentences = re.split(r'(?<=[.!?])\s+', text)
+            sentences = [s.strip() for s in sentences if len(s.strip()) > 20]
             
-            # Normalize
-            tfidf_score /= len(set(words)) if set(words) else 1
+            if len(sentences) <= top_k:
+                return sentences
             
-            # Position boost
-            position_boost = 1.0 - (idx / N) * 0.2
-            tfidf_score *= position_boost
+            # Process text with PyTextRank
+            doc = nlp(text)
             
-            # Technical content boost
-            if re.search(r'\d+', sentence):
-                tfidf_score *= 1.15
+            # Extract top sentences
+            top_sentences = []
+            for sent in doc._.textrank.summary(limit_sentences=top_k):
+                sentence_text = sent.text.strip()
+                if len(sentence_text) > 20:
+                    top_sentences.append(sentence_text)
             
-            sentence_scores.append((tfidf_score, sentence, idx))
-        
-        # Get top-k, maintain order
-        top_sentences = sorted(sentence_scores, reverse=True)[:top_k]
-        top_sentences.sort(key=lambda x: x[2])
-        
-        return [s[1] for s in top_sentences]
+            # If not enough sentences, add more from original
+            if len(top_sentences) < top_k:
+                extracted_set = set(top_sentences)
+                for sent in sentences:
+                    if sent not in extracted_set and len(top_sentences) < top_k:
+                        top_sentences.append(sent)
+            
+            # Sort by original order in text
+            sentence_positions = {}
+            for sent in top_sentences:
+                pos = text.find(sent)
+                if pos != -1:
+                    sentence_positions[sent] = pos
+            
+            sorted_sentences = sorted(
+                top_sentences, 
+                key=lambda s: sentence_positions.get(s, float('inf'))
+            )
+            
+            return sorted_sentences[:top_k]
+            
+        except ImportError as e:
+            print(f"⚠️ PyTextRank not installed: {str(e)}")
+            print("   Install with: pip install pytextrank spacy")
+            print("   Then run: python -m spacy download en_core_web_sm")
+            print("   Falling back to simple extraction...")
+            
+            # Fallback
+            sentences = re.split(r'(?<=[.!?])\s+', text)
+            sentences = [s.strip() for s in sentences if len(s.strip()) > 20]
+            return sentences[:min(top_k, len(sentences))]
+            
+        except Exception as e:
+            print(f"⚠️ PyTextRank extraction failed: {str(e)}")
+            print("   Falling back to simple extraction...")
+            
+            # Fallback
+            sentences = re.split(r'(?<=[.!?])\s+', text)
+            sentences = [s.strip() for s in sentences if len(s.strip()) > 20]
+            return sentences[:min(top_k, len(sentences))]
     

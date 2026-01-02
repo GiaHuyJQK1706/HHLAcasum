@@ -86,11 +86,7 @@ class ModuleConfigs:
     
     # Simple prompts for FINE-TUNED models
     FINETUNED_PREFIX_SHORT: str = "summarize: "
-    FINETUNED_PREFIX_LONG: str = "summarize in detail: "
-    
-    # Detailed prompts for BASE models
-    BASE_PREFIX_SHORT: str = "Write a brief summary of the following academic text, focusing on main points: "
-    BASE_PREFIX_LONG: str = "Write a comprehensive summary of the following academic text, covering all important details and findings: "
+    FINETUNED_PREFIX_LONG: str = "summarize: "
     
     # ============================================================
     # QUALITY CONTROL
@@ -190,10 +186,10 @@ class ModuleConfigs:
                 config["prefix"] = self.FINETUNED_PREFIX_LONG if is_long else self.FINETUNED_PREFIX_SHORT
             else:
                 # Base model: Need detailed instructions
-                config["prefix"] = self.BASE_PREFIX_LONG if is_long else self.BASE_PREFIX_SHORT
+                config["prefix"] = self.FINETUNED_PREFIX_LONG if is_long else self.FINETUNED_PREFIX_SHORT
         else:
             config["prefix"] = ""
-        
+
         return config
     
     def get_strategy_recommendation(self, text_length: int, num_sections: int) -> str:

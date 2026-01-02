@@ -91,7 +91,6 @@ class Summarizer:
     def summarize(self, text: str, summary_length: str = "short") -> str:
         """
         Generate natural flowing summary
-        FIXED: Prompt leakage, generation warnings, section detection
         """
         try:
             if self.model is None or self.tokenizer is None:
@@ -226,7 +225,7 @@ class Summarizer:
             print(f"   Input: {len(text)} chars → Extractive-Abstractive Hybrid")
             
             # STEP 1: Extract key sentences (reduce input size)
-            num_sentences = 20 if config['summary_type'] == 'long' else 12
+            num_sentences = 15 if config['summary_type'] == 'long' else 10
             print(f"      Phase 1: Extracting {num_sentences} key sentences...")
             
             key_sentences = self.section_detector.extract_key_sentences(text, top_k=num_sentences)
