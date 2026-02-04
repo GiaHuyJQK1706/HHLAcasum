@@ -240,7 +240,7 @@ class Summarizer:
             return summary
         
         # Medium text - light extraction for quality
-        elif len(text) > 4096:
+        elif len(text) > 2048:
             print(f"   Input: {len(text)} chars → Light extraction + generation")
             
             # Extract top sentences to focus on key content

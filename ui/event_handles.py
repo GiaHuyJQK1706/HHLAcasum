@@ -43,7 +43,7 @@ class EventHandles:
             result = self.main_controller.import_text_from_file(file_obj.name)
             
             if result["success"]:
-                preview = result["text"][:500] + ("..." if len(result["text"]) > 16384 else "")
+                preview = result["text"][:16384] + ("..." if len(result["text"]) > 16384 else "")
                 return f"✅ {result['message']}", preview, "📄 Success"
             else:
                 self.error_controller.log_error(result["message"], "file")
